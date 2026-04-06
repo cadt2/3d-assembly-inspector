@@ -1,0 +1,15 @@
+# Models (GLTF, GLB, textures, binaries)
+assets/models/*
+
+# Keep folder structure
+!assets/models/
+!assets/models/README.md
+
+# Optional: ignore common 3D formats explicitly
+*.gltf
+*.glb
+*.bin
+*.hdr
+*.png
+*.jpg
+*.jpeg

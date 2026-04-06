@@ -11,7 +11,7 @@ export function createLayout() {
                     { id: "tree", width: 260 },
                     {
                         rows: [
-                            { id: "viewerToolbar", height: 44 },
+                            { id: "viewerToolbar", height: 55 },
                             { id: "viewer" }
                         ]
                     }
