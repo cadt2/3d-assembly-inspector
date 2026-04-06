@@ -20,8 +20,10 @@ export function createLayout() {
             { id: "properties", height: 90, resizable: true }
         ]
     });
+    
+    //dhx.setTheme("contrast-light"); 
 
-    const { tree, setTreeData } = createTree();
+    const { tree, setTreeData, onSelect, selectByUniqueId } = createTree();
     const toolbar = createToolbar();
 
     layout.getCell("tree").attach(tree);
@@ -51,7 +53,20 @@ export function createLayout() {
                     setTreeData(payload.treeData);
                 }
 
+                if (payload && typeof payload.selectNodeByUniqueId === "function") {
+                    onSelect((item) => {
+                        payload.selectNodeByUniqueId(item.data.uniqueId);
+                    });
+                }
+
                 viewerCell.progressHide();
+            },
+            onNodePicked: (picked) => {
+                if (!picked) {
+                    return;
+                }
+
+                selectByUniqueId(picked.uniqueId);
             },
             onError: () => {
                 viewerCell.progressHide();

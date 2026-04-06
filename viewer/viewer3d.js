@@ -25,6 +25,7 @@ function buildTreeNode(node) {
         value: node.name || `node_${node.uniqueId}`,
         open: true,
         data: {
+            uniqueId: node.uniqueId,
             nodeId: node.id,
             nodeName: node.name || `node_${node.uniqueId}`,
             nodeType: typeof node.getClassName === "function" ? node.getClassName() : "Unknown",
@@ -40,8 +41,40 @@ function buildSceneTreeData(scene) {
         .map((node) => buildTreeNode(node));
 }
 
+function getRenderableMeshesFromNode(node) {
+    const meshes = [];
+
+    if (!node) {
+        return meshes;
+    }
+
+    if (typeof node.getTotalVertices === "function" && node.getTotalVertices() > 0) {
+        meshes.push(node);
+    }
+
+    const children = typeof node.getChildren === "function" ? node.getChildren() : [];
+    children.forEach((child) => {
+        meshes.push(...getRenderableMeshesFromNode(child));
+    });
+
+    return meshes;
+}
+
+function getSelectableAncestor(node) {
+    let current = node;
+
+    while (current) {
+        if (shouldIncludeSceneNode(current)) {
+            return current;
+        }
+        current = current.parent || null;
+    }
+
+    return null;
+}
+
 export function initViewer(containerId, options = {}) {
-    const { onLoaded, onError } = options;
+    const { onLoaded, onError, onNodePicked } = options;
 
     const container = document.getElementById(containerId);
     if (!container) {
@@ -101,6 +134,33 @@ export function initViewer(containerId, options = {}) {
 
     BABYLON.SceneLoader.ShowLoadingScreen = false;
 
+    const highlightLayer = new BABYLON.HighlightLayer("highlightLayer", scene);
+    const nodeMap = new Map();
+    let highlightedMeshes = [];
+
+    function clearSelection() {
+        highlightedMeshes.forEach((mesh) => {
+            highlightLayer.removeMesh(mesh);
+        });
+        highlightedMeshes = [];
+    }
+
+    function selectNodeByUniqueId(uniqueId) {
+        clearSelection();
+
+        const node = nodeMap.get(uniqueId);
+        if (!node) {
+            return;
+        }
+
+        const meshes = getRenderableMeshesFromNode(node);
+        meshes.forEach((mesh) => {
+            highlightLayer.addMesh(mesh, BABYLON.Color3.Yellow());
+        });
+
+        highlightedMeshes = meshes;
+    }
+
     BABYLON.SceneLoader.Append(
         "./assets/models/adanHead/",
         "adamHead.gltf",
@@ -159,8 +219,54 @@ export function initViewer(containerId, options = {}) {
                     ground.position.y = min.y - 0.02;
                 }
 
+                scene.rootNodes.forEach((rootNode) => {
+                    if (shouldIncludeSceneNode(rootNode)) {
+                        const stack = [rootNode];
+
+                        while (stack.length > 0) {
+                            const current = stack.pop();
+                            nodeMap.set(current.uniqueId, current);
+
+                            const children = typeof current.getChildren === "function"
+                                ? current.getChildren()
+                                : [];
+
+                            children.forEach((child) => {
+                                if (shouldIncludeSceneNode(child)) {
+                                    stack.push(child);
+                                }
+                            });
+                        }
+                    }
+                });
+
+                scene.onPointerObservable.add((pointerInfo) => {
+                    if (pointerInfo.type !== BABYLON.PointerEventTypes.POINTERPICK) {
+                        return;
+                    }
+
+                    const pickedMesh = pointerInfo.pickInfo?.pickedMesh;
+                    if (!pickedMesh || pickedMesh.name === "ground") {
+                        return;
+                    }
+
+                    const selectableNode = getSelectableAncestor(pickedMesh);
+                    if (!selectableNode) {
+                        return;
+                    }
+
+                    selectNodeByUniqueId(selectableNode.uniqueId);
+
+                    if (typeof onNodePicked === "function") {
+                        onNodePicked({
+                            uniqueId: selectableNode.uniqueId,
+                            nodeId: selectableNode.id,
+                            nodeName: selectableNode.name || `node_${selectableNode.uniqueId}`
+                        });
+                    }
+                });
+
                 const treeData = buildSceneTreeData(scene);
-                console.log("GLTF tree data:", treeData);
 
                 if (onLoaded) {
                     onLoaded({
@@ -168,7 +274,9 @@ export function initViewer(containerId, options = {}) {
                         engine,
                         scene,
                         camera,
-                        ground
+                        ground,
+                        selectNodeByUniqueId,
+                        clearSelection
                     });
                 }
             } catch (error) {
@@ -199,6 +307,8 @@ export function initViewer(containerId, options = {}) {
         engine,
         scene,
         camera,
-        ground
+        ground,
+        selectNodeByUniqueId,
+        clearSelection
     };
 }
