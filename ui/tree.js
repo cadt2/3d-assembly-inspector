@@ -1,21 +1,19 @@
 export function createTree() {
     const tree = new dhx.Tree(null, {
-        data: [
-            {
-                id: "assembly",
-                value: "Assembly",
-                open: true,
-                items: [
-                    { id: "part1", value: "Part_01 (x4)" },
-                    { id: "part2", value: "Part_02 (x2)" }
-                ]
-            }
-        ]
+        data: []
     });
 
     tree.events.on("ItemClick", (id) => {
         console.log("Tree selected:", id);
     });
 
-    return tree;
+    function setTreeData(data) {
+        tree.data.removeAll();
+        tree.data.parse(data);
+    }
+
+    return {
+        tree,
+        setTreeData
+    };
 }

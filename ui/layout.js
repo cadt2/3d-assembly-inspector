@@ -21,7 +21,7 @@ export function createLayout() {
         ]
     });
 
-    const tree = createTree();
+    const { tree, setTreeData } = createTree();
     const toolbar = createToolbar();
 
     layout.getCell("tree").attach(tree);
@@ -32,7 +32,7 @@ export function createLayout() {
     `);
 
     layout.getCell("viewer").attachHTML(`
-        <div id="viewer-root" style="width:100%; height:100%;"></div>
+        <div id="viewer-root" style="width: 100%; height: 100%;"></div>
     `);
 
     layout.getCell("properties").attachHTML(`
@@ -41,9 +41,23 @@ export function createLayout() {
         </div>
     `);
 
+    const viewerCell = layout.getCell("viewer");
+    viewerCell.progressShow();
+
     dhx.awaitRedraw().then(() => {
-        initViewer("viewer-root");
+        initViewer("viewer-root", {
+            onLoaded: (payload) => {
+                if (payload && Array.isArray(payload.treeData)) {
+                    setTreeData(payload.treeData);
+                }
+
+                viewerCell.progressHide();
+            },
+            onError: () => {
+                viewerCell.progressHide();
+            }
+        });
     });
 
-    console.log("Layout + components ready");
+    return layout;
 }
