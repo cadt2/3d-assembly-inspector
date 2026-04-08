@@ -1,13 +1,16 @@
+// tree.js (updated)
+// - ItemClick -> passes treeId (string) to select handler
+// - adds selectByTreeId(treeId) for programmatic selection
+// - keeps selectByUniqueId(uniqueId) mapping
+
 const treeHoverClass = dhx.cssManager.add({
     backgroundColor: "#3b82f6",
     color: "#ffffff",
-  
 }, "tree-hover-blue");
 
 const treeSelectedClass = dhx.cssManager.add({
     backgroundColor: "#f97316",
     color: "#ffffff",
-    
 }, "tree-selected-orange");
 
 const treeRowClass = dhx.cssManager.add({
@@ -15,7 +18,6 @@ const treeRowClass = dhx.cssManager.add({
     width: "100%",
     padding: "2px 6px",
     boxSizing: "border-box",
-  
 }, "tree-row-base");
 
 function buildParentMap(items, parentId = null, parentMapRef = new Map(), itemMap = new Map()) {
@@ -49,21 +51,32 @@ export function createTree() {
                 classes.push(treeSelectedClass);
             }
 
-            return `<div class="${classes.join(" ")}">${item.value}</div>`;
+            // preserve original value (may be empty) - do not normalize
+            const display = (item.value !== undefined && item.value !== null) ? item.value : "";
+            return `<div class="${classes.join(" ")}">${display}</div>`;
         }
     });
 
     let selectHandler = null;
     let uniqueIdToTreeId = new Map();
     let parentMap = new Map();
+    let itemMap = new Map();
 
+    // NOTE: now passes the tree node id (string) to the select handler.
     tree.events.on("ItemClick", (id) => {
         const item = tree.data.getItem(id);
         selectedTreeId = id;
+
+        // keep dhtmlx selection state consistent
+        tree.selection.remove();
+        tree.selection.add(id);
+        tree.focusItem(id);
+
         tree.paint();
 
         if (selectHandler && item && item.data) {
-            selectHandler(item);
+            // pass the tree id string (e.g. "node_<mesh.id>") so the viewer can handle it directly
+            selectHandler(id);
         }
     });
 
@@ -83,9 +96,11 @@ export function createTree() {
 
         uniqueIdToTreeId = new Map();
         parentMap = new Map();
+        itemMap = new Map();
 
         const maps = buildParentMap(data);
         parentMap = maps.parentMap;
+        itemMap = maps.itemMap;
 
         maps.itemMap.forEach((item, treeId) => {
             if (item.data && item.data.uniqueId !== undefined) {
@@ -99,6 +114,7 @@ export function createTree() {
     }
 
     function onSelect(callback) {
+        // callback will receive the treeId string (e.g. "node_<mesh.id>")
         selectHandler = callback;
     }
 
@@ -126,10 +142,33 @@ export function createTree() {
         tree.paint();
     }
 
+    function selectByTreeId(treeId) {
+        if (!treeId) return;
+        // guard if user clicked the assembly root and you don't want it selectable:
+        // if (treeId.startsWith("node_root_")) return;
+
+        if (!itemMap.has(treeId)) return;
+
+        expandParentChain(treeId);
+
+        selectedTreeId = treeId;
+        tree.selection.remove();
+        tree.selection.add(treeId);
+        tree.focusItem(treeId);
+        tree.paint();
+    }
+
+    // helper to get item data by treeId (useful for UI panels)
+    function getItemData(treeId) {
+        return itemMap.get(treeId) || null;
+    }
+
     return {
         tree,
         setTreeData,
         onSelect,
-        selectByUniqueId
+        selectByUniqueId,
+        selectByTreeId,
+        getItemData
     };
 }
