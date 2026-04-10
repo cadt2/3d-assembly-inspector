@@ -13,3 +13,6 @@ assets/models/*
 *.png
 *.jpg
 *.jpeg
+
+# Allow only this assembly model for app interaction/testing.
+!assets/models/Glider-Retract-Landing-Gear.glb
