@@ -67,6 +67,27 @@ export const DEFAULT_VIEWER_ENV = {
     minorUnitVisibilityInitial: 0.45,
     // Grid minor line visibility after model fit/reset.
     minorUnitVisibilityFitted: 0.35
+  },
+  reflections: {
+    // Enables scene-level image-based lighting via an HDR prefiltered .env texture.
+    enabled: true,
+    // Similar setup to Babylon Sandbox default environment.
+    environmentTextureUrl: "https://assets.babylonjs.com/environments/environmentSpecular.env",
+    // Scene-level environment lighting strength.
+    sceneEnvironmentIntensity: 1,
+    // PBR material environment contribution strength.
+    materialEnvironmentIntensity: 1,
+    // Optionally apply reflection texture to StandardMaterial.
+    applyToStandardMaterial: true,
+    // Reflection intensity level for StandardMaterial reflectionTexture.
+    standardReflectionLevel: 0.35,
+    // Optional skybox using the same environment texture.
+    createSkybox: false,
+    skyboxSize: 1000,
+    skyboxBlur: 0.15,
+    // Basic image processing tuning used by Sandbox-style environments.
+    exposure: 1,
+    contrast: 1
   }
 };
 
@@ -80,6 +101,7 @@ export function buildViewerEnvironment(overrides = {}) {
     controls: mergeSection(DEFAULT_VIEWER_ENV.controls, overrides.controls),
     camera: mergeSection(DEFAULT_VIEWER_ENV.camera, overrides.camera),
     ground: mergeSection(DEFAULT_VIEWER_ENV.ground, overrides.ground),
-    grid: mergeSection(DEFAULT_VIEWER_ENV.grid, overrides.grid)
+    grid: mergeSection(DEFAULT_VIEWER_ENV.grid, overrides.grid),
+    reflections: mergeSection(DEFAULT_VIEWER_ENV.reflections, overrides.reflections)
   };
 }

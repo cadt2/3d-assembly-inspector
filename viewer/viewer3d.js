@@ -118,6 +118,101 @@ export function initViewer(containerId, options = {}) {
 
   const assemblyName = (modelFile || "").replace(/\.[^/.]+$/, "") || "assembly";
 
+  function initializeReflectionEnvironment() {
+    const reflectionConfig = env.reflections || {};
+    if (!reflectionConfig.enabled) {
+      return;
+    }
+
+    try {
+      const textureUrl = reflectionConfig.environmentTextureUrl;
+      if (!textureUrl) {
+        return;
+      }
+
+      const environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(textureUrl, scene);
+      scene.environmentTexture = environmentTexture;
+      scene.environmentIntensity = reflectionConfig.sceneEnvironmentIntensity;
+
+      if (scene.imageProcessingConfiguration) {
+        scene.imageProcessingConfiguration.exposure = reflectionConfig.exposure;
+        scene.imageProcessingConfiguration.contrast = reflectionConfig.contrast;
+      }
+
+      if (reflectionConfig.createSkybox) {
+        const skybox = scene.createDefaultSkybox(
+          environmentTexture,
+          true,
+          reflectionConfig.skyboxSize,
+          reflectionConfig.skyboxBlur,
+          false
+        );
+
+        if (skybox) {
+          skybox.metadata = { ...(skybox.metadata || {}), viewerHelper: true };
+          skybox.isPickable = false;
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to initialize reflection environment:", error);
+    }
+  }
+
+  function getMeshMaterials(meshes) {
+    const materials = new Set();
+
+    (meshes || []).forEach(mesh => {
+      const meshMaterial = mesh?.material;
+      if (!meshMaterial) return;
+
+      if (meshMaterial instanceof BABYLON.MultiMaterial) {
+        (meshMaterial.subMaterials || []).forEach(subMaterial => {
+          if (subMaterial) {
+            materials.add(subMaterial);
+          }
+        });
+        return;
+      }
+
+      materials.add(meshMaterial);
+    });
+
+    return Array.from(materials);
+  }
+
+  function applyEnvironmentReflectionsToMaterials(meshes) {
+    const reflectionConfig = env.reflections || {};
+    if (!reflectionConfig.enabled || !scene.environmentTexture) {
+      return;
+    }
+
+    const materials = getMeshMaterials(meshes);
+    materials.forEach(material => {
+      if (!material) return;
+
+      if (material instanceof BABYLON.PBRBaseMaterial) {
+        if (!material.reflectionTexture) {
+          material.reflectionTexture = scene.environmentTexture;
+        }
+
+        if (typeof material.environmentIntensity === "number") {
+          material.environmentIntensity = reflectionConfig.materialEnvironmentIntensity;
+        }
+        return;
+      }
+
+      if (reflectionConfig.applyToStandardMaterial && material instanceof BABYLON.StandardMaterial) {
+        if (!material.reflectionTexture) {
+          material.reflectionTexture = scene.environmentTexture;
+        }
+
+        if (material.reflectionTexture) {
+          material.reflectionTexture.level = reflectionConfig.standardReflectionLevel;
+        }
+      }
+    });
+  }
+
   // -----------------------
   // Helpers
   // -----------------------
@@ -309,6 +404,8 @@ export function initViewer(containerId, options = {}) {
   scene.clearColor = BABYLON.Color4.FromArray(env.background.clearColor);
   // We handle clears per camera to keep overlay backgrounds transparent.
   scene.autoClear = false;
+
+  initializeReflectionEnvironment();
 
   ensureColorifyPluginRegistration();
 
@@ -1164,6 +1261,8 @@ export function initViewer(containerId, options = {}) {
             geometries: geometries || [],
             lights: lights || []
           };
+
+          applyEnvironmentReflectionsToMaterials(activeModelAssets.meshes);
 
           applyModelBoundsAndCamera();
           overlayWidgetsVisible = true;
