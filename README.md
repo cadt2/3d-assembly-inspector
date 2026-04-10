@@ -16,6 +16,12 @@ The system is designed to help users:
 
 This project is inspired by the experience of navigating assemblies in professional CAD tools, but adapted into a lightweight web-based environment.
 
+## Interface Preview
+
+Current UI screenshot:
+
+![3D Assembly Inspector UI](assets/docs/ui-screenshot.png)
+
 ## Project Goal
 
 The main goal of this project is to translate complex 3D assemblies into a more accessible visual learning experience.
@@ -65,6 +71,16 @@ The application uses a CAD-inspired layout with four main areas:
 - **3D Viewer** for real-time model interaction
 - **Properties / Info Panel** for contextual part information
 
+## Navigation Controls
+
+Current viewer navigation is optimized for CAD-style inspection:
+
+- **Mouse wheel scroll**: zoom in/out
+- **Middle mouse drag**: pan across the model on the ground plane
+- **Shift + middle mouse drag**: orbit around the current target
+
+Note: depending on device/browser behavior, some users may refer to orbit interaction as a Shift + wheel gesture. In this project, the primary orbit input is Shift + middle-drag.
+
 ## Architecture Summary
 
 ```text
@@ -79,3 +95,35 @@ BabylonJS scene visualization
 Logical interpretation layer
         ↓
 DHTMLX tree + properties UI
+```
+
+## Quick Start
+
+This project is a lightweight frontend prototype and can be run as a static site.
+
+1. Clone the repository.
+2. Open the project folder in VS Code.
+3. Run with a local web server (for example, Live Server extension) from the project root.
+4. Open the app in your browser.
+5. Click Load Model in the toolbar to import the default assembly.
+
+## Interaction Guide
+
+Use these controls once a model is loaded:
+
+- Left click on a part: select part or sub-assembly
+- Mouse wheel: zoom in and out
+- Middle mouse drag: pan
+- Shift + middle mouse drag: orbit camera around target
+
+## Common Input Confusion
+
+- If orbit is not working, verify you are holding Shift while dragging the middle mouse button.
+- Some users describe orbit as Shift + wheel, but in this viewer the intended orbit action is Shift + middle-drag.
+- On laptops or compact mice, middle-button behavior can vary by OS/browser settings.
+
+## Current Model Asset Policy
+
+The repository is configured to track only one assembly model file for consistency and repository size control:
+
+- assets/models/Glider-Retract-Landing-Gear.glb
