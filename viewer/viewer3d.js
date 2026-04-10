@@ -2,6 +2,10 @@
 // Viewer actualizado: root no seleccionable desde el tree, tree abierto por defecto,
 // y soporte para selección desde el tree (sin loops) via handleTreeSelection.
 
+import { createViewCubeFeature } from "./viewCubeFeature.js";
+import { createAxisTriadFeature } from "./axisTriadFeature.js";
+import { buildViewerEnvironment } from "./viewerEnvironment.js";
+
 class ColorifyPluginMaterial extends BABYLON.MaterialPluginBase {
   color = new BABYLON.Color3(0.15, 0.85, 0.9);
   _isEnabled = false;
@@ -100,10 +104,17 @@ export function initViewer(containerId, options = {}) {
     modelPath = "./assets/models/",
     modelFile = "",
     autoLoad = false,
+    // Environment variables isolated for future UI/backend-driven tuning.
+    // Keep defaults stable for now; backend integration can override selectively later.
+    // Example:
+    // environment: { controls: { orbitSensitivity: 0.003 }, background: { clearColor: [0.92, 0.97, 1, 1] } }
+    environment = {},
     onLoaded,
     onError,
     onNodePicked
   } = options;
+
+  const env = buildViewerEnvironment(environment);
 
   const assemblyName = (modelFile || "").replace(/\.[^/.]+$/, "") || "assembly";
 
@@ -112,11 +123,13 @@ export function initViewer(containerId, options = {}) {
   // -----------------------
   function isHelperNode(node) {
     if (!node) return false;
+    if (node.metadata && node.metadata.viewerHelper === true) return true;
     const name = (node.name || "").toLowerCase();
     const className = typeof node.getClassName === "function" ? node.getClassName() : "";
     if (!name) return true; // treat unnamed as helper for safety (optional)
+    if (name.includes("viewcube") || name.includes("groundmarker")) return true;
     if (name.includes("ground")) return true;
-    if (className === "Camera" || className === "FreeCamera" || className === "HemisphericLight" || className === "DirectionalLight") return true;
+    if (className === "Camera" || className === "FreeCamera" || className === "ArcRotateCamera" || className === "HemisphericLight" || className === "DirectionalLight") return true;
     return false;
   }
 
@@ -159,31 +172,91 @@ export function initViewer(containerId, options = {}) {
     return out;
   }
 
-  // buildTreeNode sets open:true for every node so tree arrives fully expanded
+  function isSyntheticSolidWrapper(node) {
+    if (!node) return false;
+    const name = (node.name || "").trim();
+    return /^solid1$/i.test(name);
+  }
+
+  function getIncludedSceneChildren(node) {
+    if (!node || typeof node.getChildren !== "function") return [];
+    return node.getChildren().filter(child => shouldIncludeSceneNode(child));
+  }
+
+  function normalizeNodeForTree(node) {
+    if (!shouldIncludeSceneNode(node)) return [];
+
+    const includedChildren = getIncludedSceneChildren(node);
+
+    // Export normalization: always collapse synthetic "Solid1" wrapper and
+    // promote its children to the parent level.
+    if (isSyntheticSolidWrapper(node)) {
+      return buildTreeItemsFromChildren(includedChildren);
+    }
+
+    return [buildTreeNode(node)];
+  }
+
+  function buildTreeItemsFromChildren(children) {
+    const out = [];
+    children.forEach(child => {
+      out.push(...normalizeNodeForTree(child));
+    });
+    return out;
+  }
+
+  function shouldCollapseRedundantSameNameChild(node) {
+    const children = getIncludedSceneChildren(node);
+    if (children.length !== 1) return false;
+
+    const onlyChild = children[0];
+    const parentName = (node.name || "").trim().toLowerCase();
+    const childName = (onlyChild.name || "").trim().toLowerCase();
+    if (!parentName || !childName) return false;
+
+    return parentName === childName;
+  }
+
+  // buildTreeNode marks only real branches as open; leaves stay as plain items.
   function buildTreeNode(node) {
-    const children = typeof node.getChildren === "function" ? node.getChildren() : [];
-    const items = children
-      .filter(child => shouldIncludeSceneNode(child))
-      .map(child => buildTreeNode(child));
-    return {
+    const children = getIncludedSceneChildren(node);
+    let normalizedItems = buildTreeItemsFromChildren(children);
+
+    // Remove redundant hierarchy level when parent and only child share the same name.
+    // Example: F_1/F_1 -> keep one F_1 and promote grand-children.
+    if (shouldCollapseRedundantSameNameChild(node)) {
+      const onlyChild = children[0];
+      const promotedChildren = getIncludedSceneChildren(onlyChild);
+      normalizedItems = buildTreeItemsFromChildren(promotedChildren);
+    }
+
+    const treeNode = {
       id: `node_${node.uniqueId}`,
       value: node.name && node.name.length ? node.name : `Unnamed_${node.uniqueId}`,
-      open: true,
       data: {
         uniqueId: node.uniqueId,
         nodeId: node.id,
         nodeName: node.name || `node_${node.uniqueId}`,
         nodeType: typeof node.getClassName === "function" ? node.getClassName() : "Unknown",
         isPart: typeof node.getTotalVertices === "function" && node.getTotalVertices() > 0
-      },
-      items
+      }
     };
+
+    // DHTMLX treats presence of "items" as a branch; omit it for true leaves.
+    if (normalizedItems.length > 0) {
+      treeNode.items = normalizedItems;
+      treeNode.open = true;
+    }
+
+    return treeNode;
   }
 
   function buildSceneTreeDataForRootNodes(rootNodes) {
-    return rootNodes
-      .filter(node => shouldIncludeSceneNode(node))
-      .map(node => buildTreeNode(node));
+    const out = [];
+    rootNodes.forEach(node => {
+      out.push(...normalizeNodeForTree(node));
+    });
+    return out;
   }
 
   function getRenderableMeshesFromNode(node) {
@@ -233,34 +306,154 @@ export function initViewer(containerId, options = {}) {
   engine.setHardwareScalingLevel(Math.min(1.5, initialDPR));
 
   const scene = new BABYLON.Scene(engine);
-  scene.clearColor = new BABYLON.Color4(0.75, 0.85, 1, 1);
-  scene.autoClear = true;
+  scene.clearColor = BABYLON.Color4.FromArray(env.background.clearColor);
+  // We handle clears per camera to keep overlay backgrounds transparent.
+  scene.autoClear = false;
 
   ensureColorifyPluginRegistration();
 
   // camera + lights + ground
-  const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 3, 6, BABYLON.Vector3.Zero(), scene);
+  // Default startup orientation (before loading any model): Top view.
+  const camera = new BABYLON.ArcRotateCamera("camera", Math.PI, 0.001, 6, BABYLON.Vector3.Zero(), scene);
   camera.attachControl(canvas, true);
-  camera.lowerRadiusLimit = 1;
-  camera.upperRadiusLimit = 500;
-  camera.wheelPrecision = 150;
-  camera.minZ = 0.001;
+  camera.lowerRadiusLimit = env.camera.initialLowerRadiusLimit;
+  camera.upperRadiusLimit = env.camera.initialUpperRadiusLimit;
+  camera.wheelPrecision = env.camera.initialWheelPrecision;
+  camera.minZ = env.camera.initialMinZ;
+  camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+
+  function updateMainCameraOrthoFrustum() {
+    if (camera.mode !== BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
+      return;
+    }
+
+    const renderWidth = Math.max(engine.getRenderWidth(), 1);
+    const renderHeight = Math.max(engine.getRenderHeight(), 1);
+    const aspect = renderWidth / renderHeight;
+
+    // Tie ortho zoom to ArcRotate radius so existing wheel controls remain useful.
+    const baseSize = Math.max(currentRadius * 1.2, 0.35);
+    const zoomSize = Math.max(camera.radius * 0.7, 0.15);
+    const halfHeight = Math.max(Math.min(zoomSize, baseSize * 8), baseSize * 0.12);
+    const halfWidth = halfHeight * aspect;
+
+    camera.orthoLeft = -halfWidth;
+    camera.orthoRight = halfWidth;
+    camera.orthoBottom = -halfHeight;
+    camera.orthoTop = halfHeight;
+  }
+
+  function getProjectionMode() {
+    return camera.mode === BABYLON.Camera.ORTHOGRAPHIC_CAMERA ? "orthographic" : "perspective";
+  }
+
+  function setProjectionMode(mode) {
+    const normalized = typeof mode === "string" ? mode.toLowerCase() : "";
+    const nextMode = normalized === "perspective"
+      ? BABYLON.Camera.PERSPECTIVE_CAMERA
+      : BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+
+    if (camera.mode === nextMode) {
+      requestRender();
+      return getProjectionMode();
+    }
+
+    camera.mode = nextMode;
+
+    if (nextMode === BABYLON.Camera.ORTHOGRAPHIC_CAMERA) {
+      updateMainCameraOrthoFrustum();
+    } else {
+      camera.orthoLeft = null;
+      camera.orthoRight = null;
+      camera.orthoBottom = null;
+      camera.orthoTop = null;
+    }
+
+    requestRender();
+    return getProjectionMode();
+  }
+
+  function toggleProjectionMode() {
+    return setProjectionMode(getProjectionMode() === "orthographic" ? "perspective" : "orthographic");
+  }
+
+  function setStandardView(viewName) {
+    const key = typeof viewName === "string" ? viewName.toLowerCase() : "";
+    const orthoBetaEpsilon = 0.001;
+    const views = {
+      top: { alpha: Math.PI, beta: orthoBetaEpsilon },
+      bottom: { alpha: Math.PI, beta: Math.PI - orthoBetaEpsilon },
+      front: { alpha: Math.PI / 2, beta: Math.PI / 2 },
+      back: { alpha: -Math.PI / 2, beta: Math.PI / 2 },
+      left: { alpha: 0, beta: Math.PI / 2 },
+      right: { alpha: Math.PI, beta: Math.PI / 2 },
+      isometric: { alpha: Math.PI / 4, beta: Math.PI / 3 }
+    };
+
+    const target = views[key];
+    if (!target) return false;
+
+    if (typeof resetView === "function") {
+      resetView();
+    }
+
+    setProjectionMode(key === "isometric" ? "perspective" : "orthographic");
+    camera.upVector = new BABYLON.Vector3(0, 1, 0);
+    camera.alpha = target.alpha;
+    camera.beta = target.beta;
+    requestRender();
+    return true;
+  }
 
   if (camera.inputs?.attached?.pointers) camera.inputs.attached.pointers.buttons = [];
+
+  const viewCubeFeature = createViewCubeFeature({
+    scene,
+    engine,
+    mainCamera: camera,
+    onStandardViewRequested: viewName => setStandardView(viewName)
+  });
+  const axisTriadFeature = createAxisTriadFeature({
+    scene,
+    engine,
+    mainCamera: camera
+  });
+
+  let overlayWidgetsVisible = false;
+  function updateOverlayCameras() {
+    if (overlayWidgetsVisible) {
+      scene.activeCameras = [camera, viewCubeFeature.camera, axisTriadFeature.camera];
+      viewCubeFeature.updateViewport();
+      axisTriadFeature.updateViewport();
+      return;
+    }
+
+    scene.activeCameras = [camera];
+    viewCubeFeature.camera.viewport = new BABYLON.Viewport(0, 0, 0, 0);
+    axisTriadFeature.camera.viewport = new BABYLON.Viewport(0, 0, 0, 0);
+  }
+
+  updateOverlayCameras();
+  scene.cameraToUseForPointers = camera;
 
   new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
 
   const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 20, height: 20 }, scene);
+  ground.metadata = { ...(ground.metadata || {}), viewerHelper: true };
   ground.isPickable = true;
 
   const gridMaterial = new BABYLON.GridMaterial("gridMaterial", scene);
   gridMaterial.majorUnitFrequency = 5;
-  gridMaterial.minorUnitVisibility = 0.45;
+  gridMaterial.minorUnitVisibility = env.grid.minorUnitVisibilityInitial;
   gridMaterial.backFaceCulling = false;
   gridMaterial.mainColor = new BABYLON.Color3(1, 1, 1);
   gridMaterial.lineColor = new BABYLON.Color3(0.7, 0.7, 0.7);
   gridMaterial.opacity = 0.85;
   ground.material = gridMaterial;
+
+  // Match startup behavior: no model loaded yet -> keep grid hidden.
+  ground.setEnabled(overlayWidgetsVisible);
+  ground.isPickable = overlayWidgetsVisible;
 
   BABYLON.SceneLoader.ShowLoadingScreen = false;
 
@@ -363,6 +556,11 @@ export function initViewer(containerId, options = {}) {
       camera,
       ground,
       loadModel,
+      resetView,
+      setStandardView,
+      setProjectionMode,
+      toggleProjectionMode,
+      getProjectionMode,
       setIsolationEnabled,
       clearSelectionVisuals,
       selectNodeByUniqueId,
@@ -553,7 +751,7 @@ export function initViewer(containerId, options = {}) {
   let panStartGroundPoint = null;
   let lastPointerX = 0;
   let lastPointerY = 0;
-  const baseOrbitSensitivity = 0.0025;
+  const baseOrbitSensitivity = env.controls.orbitSensitivity;
 
   function computeOrbitSensitivity() {
     const r = Math.max(currentRadius, 0.0001);
@@ -561,8 +759,8 @@ export function initViewer(containerId, options = {}) {
   }
 
   function computeWheelPrecision() {
-    const calc = Math.round(currentRadius * 40);
-    return Math.min(Math.max(calc, 80), 500);
+    const calc = Math.round(currentRadius * env.controls.wheelPrecisionFactor);
+    return Math.min(Math.max(calc, env.controls.wheelPrecisionMin), env.controls.wheelPrecisionMax);
   }
 
   function pickGround(clientX, clientY) {
@@ -576,6 +774,7 @@ export function initViewer(containerId, options = {}) {
     const markerDiameter = Math.max(size * 0.6, 0.1);
     if (!groundMarker || groundMarker.isDisposed()) {
       groundMarker = BABYLON.MeshBuilder.CreateCylinder("groundMarker", { diameter: markerDiameter, height: 0.002, tessellation: 64 }, scene);
+      groundMarker.metadata = { ...(groundMarker.metadata || {}), viewerHelper: true };
       groundMarker.isPickable = false;
       const mat = new BABYLON.StandardMaterial("groundMarkerMat", scene);
       mat.diffuseColor = new BABYLON.Color3(0, 0, 0);
@@ -583,6 +782,13 @@ export function initViewer(containerId, options = {}) {
       mat.disableLighting = true;
       groundMarker.material = mat;
     }
+
+    if (!overlayWidgetsVisible) {
+      groundMarker.setEnabled(false);
+      return;
+    }
+
+    groundMarker.setEnabled(true);
     groundMarker.position.x = center.x;
     groundMarker.position.z = center.z;
     groundMarker.position.y = center.y - 0.001;
@@ -605,9 +811,34 @@ export function initViewer(containerId, options = {}) {
   }
 
   requestRender();
-  engine.runRenderLoop(() => { if (renderRequested) scene.render(); });
+  engine.runRenderLoop(() => {
+    if (!renderRequested) return;
+
+    // Keep the viewcube orientation synced with the main orbit camera.
+    if (overlayWidgetsVisible) {
+      viewCubeFeature.syncOrientation();
+      axisTriadFeature.syncOrientation();
+    }
+    updateMainCameraOrthoFrustum();
+    scene.render();
+  });
 
   const listenerDisposers = [];
+
+  // Camera clear policy:
+  // - Main camera: clear color + depth (normal scene render).
+  // - Overlay cameras: clear only depth so widgets render on top without a colored backdrop.
+  const cameraClearObserver = scene.onBeforeCameraRenderObservable.add(activeCamera => {
+    if (activeCamera === camera) {
+      engine.clear(scene.clearColor, true, true, true);
+      return;
+    }
+
+    if (activeCamera === viewCubeFeature.camera || activeCamera === axisTriadFeature.camera) {
+      engine.clear(new BABYLON.Color4(0, 0, 0, 0), false, true, false);
+    }
+  });
+  listenerDisposers.push(() => scene.onBeforeCameraRenderObservable.remove(cameraClearObserver));
 
   function addCanvasListener(type, handler, options) {
     canvas.addEventListener(type, handler, options);
@@ -696,7 +927,10 @@ export function initViewer(containerId, options = {}) {
   addCanvasListener("auxclick", onAuxClick);
   addCanvasListener("wheel", onWheel);
 
-  const viewMatrixObserver = camera.onViewMatrixChangedObservable.add(() => requestRender());
+  const viewMatrixObserver = camera.onViewMatrixChangedObservable.add(() => {
+    updateMainCameraOrthoFrustum();
+    requestRender();
+  });
   listenerDisposers.push(() => camera.onViewMatrixChangedObservable.remove(viewMatrixObserver));
 
   let pointerObserver = null;
@@ -735,7 +969,8 @@ export function initViewer(containerId, options = {}) {
       if (pointerInfo.type !== BABYLON.PointerEventTypes.POINTERPICK) return;
       if (isolationActive) return;
 
-      const pickedMesh = pointerInfo.pickInfo?.pickedMesh;
+      const explicitPick = scene.pick(scene.pointerX, scene.pointerY, undefined, false, camera);
+      const pickedMesh = explicitPick?.pickedMesh || pointerInfo.pickInfo?.pickedMesh;
       if (!pickedMesh) return;
 
       if (pickedMesh === ground || (pickedMesh.name && pickedMesh.name.toLowerCase().includes("ground"))) {
@@ -767,10 +1002,15 @@ export function initViewer(containerId, options = {}) {
   }
 
   function applyModelBoundsAndCamera() {
-    scene.meshes.forEach(mesh => {
-      if (mesh && mesh !== ground) {
-        try { mesh.computeWorldMatrix(true); mesh.refreshBoundingInfo(true); mesh.freezeWorldMatrix(); } catch (e) {}
-      }
+    const importedModelMeshes = (activeModelAssets?.meshes || []).filter(mesh => {
+      if (!mesh || typeof mesh.getTotalVertices !== "function") return false;
+      if (mesh.getTotalVertices() <= 0) return false;
+      if (isHelperNode(mesh)) return false;
+      return true;
+    });
+
+    importedModelMeshes.forEach(mesh => {
+      try { mesh.computeWorldMatrix(true); mesh.refreshBoundingInfo(true); mesh.freezeWorldMatrix(); } catch (e) {}
     });
 
     try { scene.createOrUpdateSelectionOctree(128); } catch (e) {}
@@ -778,7 +1018,7 @@ export function initViewer(containerId, options = {}) {
 
     scene.render();
 
-    allModelMeshes = scene.meshes.filter(mesh => mesh !== ground && mesh.getTotalVertices && mesh.getTotalVertices() > 0);
+    allModelMeshes = importedModelMeshes;
 
     if (allModelMeshes.length === 0) return;
 
@@ -806,31 +1046,90 @@ export function initViewer(containerId, options = {}) {
     currentRadius = Math.max(radius, 0.0001);
 
     camera.setTarget(center);
-    camera.lowerRadiusLimit = Math.max(radius * 1.2, 0.05);
-    camera.upperRadiusLimit = Math.max(radius * 20, 50);
-    camera.radius = Math.max(radius * 2.0, camera.lowerRadiusLimit + radius * 0.5);
-    camera.minZ = Math.max(radius * 0.001, 0.001);
+    camera.lowerRadiusLimit = Math.max(radius * env.camera.lowerRadiusFactor, 0.05);
+    camera.upperRadiusLimit = Math.max(radius * env.camera.upperRadiusFactor, env.camera.minUpperRadius);
+    camera.radius = Math.max(radius * env.camera.fitRadiusFactor, camera.lowerRadiusLimit + radius * env.camera.fitRadiusPaddingFactor);
+    camera.minZ = Math.max(radius * env.camera.minZFactor, env.camera.minMinZ);
 
     const targetScaling = Math.min(Math.max(0.5 + Math.log10(currentRadius + 1), 1), 2.5);
     engine.setHardwareScalingLevel(targetScaling);
 
     camera.wheelPrecision = computeWheelPrecision();
 
-    const groundFactor = 2.0;
-    const groundSize = Math.max(diagonal * groundFactor, 20);
-    const computedGridRatio = Math.max(diagonal / 40, 0.02);
+    const groundSize = Math.max(diagonal * env.ground.sizeFactor, env.ground.minSize);
+    const computedGridRatio = Math.max(diagonal / env.grid.ratioDivisor, env.grid.minRatio);
 
     ground.position.x = center.x;
     ground.position.z = center.z;
-    ground.position.y = min.y - Math.max(radius * 0.01, 0.001);
+    ground.position.y = min.y - Math.max(radius * env.ground.offsetFactor, env.ground.minOffset);
     ground.scaling.x = groundSize / 20;
     ground.scaling.z = groundSize / 20;
 
     gridMaterial.gridRatio = computedGridRatio;
-    gridMaterial.majorUnitFrequency = 5;
-    gridMaterial.minorUnitVisibility = 0.35;
+    gridMaterial.majorUnitFrequency = env.grid.majorUnitFrequency;
+    gridMaterial.minorUnitVisibility = env.grid.minorUnitVisibilityFitted;
 
     createOrUpdateGroundMarker(center, diagonal);
+    updateMainCameraOrthoFrustum();
+  }
+
+  function resetView() {
+    if (!allModelMeshes || allModelMeshes.length === 0) {
+      return false;
+    }
+
+    const min = new BABYLON.Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+    const max = new BABYLON.Vector3(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+
+    allModelMeshes.forEach(mesh => {
+      if (!mesh || mesh.isDisposed?.()) return;
+      try {
+        mesh.computeWorldMatrix(true);
+        mesh.refreshBoundingInfo(true);
+        const b = mesh.getBoundingInfo().boundingBox;
+        const meshMin = b.minimumWorld;
+        const meshMax = b.maximumWorld;
+        min.x = Math.min(min.x, meshMin.x);
+        min.y = Math.min(min.y, meshMin.y);
+        min.z = Math.min(min.z, meshMin.z);
+        max.x = Math.max(max.x, meshMax.x);
+        max.y = Math.max(max.y, meshMax.y);
+        max.z = Math.max(max.z, meshMax.z);
+      } catch (e) {}
+    });
+
+    if (!Number.isFinite(min.x) || !Number.isFinite(max.x)) {
+      return false;
+    }
+
+    const center = new BABYLON.Vector3((min.x + max.x) * 0.5, (min.y + max.y) * 0.5, (min.z + max.z) * 0.5);
+    const size = max.subtract(min);
+    const diagonal = size.length();
+    const radius = Math.max(diagonal * 0.5, 0.0001);
+    currentRadius = radius;
+
+    camera.setTarget(center);
+    camera.lowerRadiusLimit = Math.max(radius * env.camera.lowerRadiusFactor, 0.05);
+    camera.upperRadiusLimit = Math.max(radius * env.camera.upperRadiusFactor, env.camera.minUpperRadius);
+    camera.radius = Math.max(radius * env.camera.fitRadiusFactor, camera.lowerRadiusLimit + radius * env.camera.fitRadiusPaddingFactor);
+    camera.minZ = Math.max(radius * env.camera.minZFactor, env.camera.minMinZ);
+    camera.wheelPrecision = computeWheelPrecision();
+
+    const groundSize = Math.max(diagonal * env.ground.sizeFactor, env.ground.minSize);
+    const computedGridRatio = Math.max(diagonal / env.grid.ratioDivisor, env.grid.minRatio);
+    ground.position.x = center.x;
+    ground.position.z = center.z;
+    ground.position.y = min.y - Math.max(radius * env.ground.offsetFactor, env.ground.minOffset);
+    ground.scaling.x = groundSize / 20;
+    ground.scaling.z = groundSize / 20;
+    gridMaterial.gridRatio = computedGridRatio;
+    gridMaterial.majorUnitFrequency = env.grid.majorUnitFrequency;
+    gridMaterial.minorUnitVisibility = env.grid.minorUnitVisibilityFitted;
+
+    createOrUpdateGroundMarker(center, diagonal);
+    updateMainCameraOrthoFrustum();
+    requestRender();
+    return true;
   }
 
   function loadModel(nextModelFile = modelFile, nextModelPath = modelPath) {
@@ -841,6 +1140,13 @@ export function initViewer(containerId, options = {}) {
     }
 
     resetModelState();
+    overlayWidgetsVisible = false;
+    ground.setEnabled(false);
+    ground.isPickable = false;
+    if (groundMarker && !groundMarker.isDisposed?.()) {
+      groundMarker.setEnabled(false);
+    }
+    updateOverlayCameras();
 
     BABYLON.SceneLoader.ImportMesh(
       "",
@@ -860,6 +1166,13 @@ export function initViewer(containerId, options = {}) {
           };
 
           applyModelBoundsAndCamera();
+          overlayWidgetsVisible = true;
+          ground.setEnabled(true);
+          ground.isPickable = true;
+          if (groundMarker && !groundMarker.isDisposed?.()) {
+            groundMarker.setEnabled(true);
+          }
+          updateOverlayCameras();
           const treeData = rebuildTreeAndInteractions();
 
           if (onLoaded) {
@@ -875,6 +1188,13 @@ export function initViewer(containerId, options = {}) {
       null,
       function (_scene, message, exception) {
         console.error("Error loading model:", message, exception);
+        overlayWidgetsVisible = false;
+        ground.setEnabled(false);
+        ground.isPickable = false;
+        if (groundMarker && !groundMarker.isDisposed?.()) {
+          groundMarker.setEnabled(false);
+        }
+        updateOverlayCameras();
         if (onError) onError(exception || new Error(message));
       }
     );
@@ -892,6 +1212,14 @@ export function initViewer(containerId, options = {}) {
   // resize
   const onResize = () => {
     engine.resize();
+    if (overlayWidgetsVisible) {
+      viewCubeFeature.updateViewport();
+      axisTriadFeature.updateViewport();
+    } else {
+      viewCubeFeature.camera.viewport = new BABYLON.Viewport(0, 0, 0, 0);
+      axisTriadFeature.camera.viewport = new BABYLON.Viewport(0, 0, 0, 0);
+    }
+    updateMainCameraOrthoFrustum();
     requestRender();
   };
   window.addEventListener("resize", onResize);
@@ -916,6 +1244,9 @@ export function initViewer(containerId, options = {}) {
 
     clearSelection();
 
+    try { viewCubeFeature.dispose(); } catch (e) {}
+    try { axisTriadFeature.dispose(); } catch (e) {}
+
     try { scene.dispose(); } catch (e) {}
     try { engine.dispose(); } catch (e) {}
   }
@@ -927,6 +1258,11 @@ export function initViewer(containerId, options = {}) {
     camera,
     ground,
     loadModel,
+    resetView,
+    setStandardView,
+    setProjectionMode,
+    toggleProjectionMode,
+    getProjectionMode,
     setIsolationEnabled,
     clearSelectionVisuals,
     selectNodeByUniqueId,

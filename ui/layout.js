@@ -1,17 +1,19 @@
 import { createToolbar } from "./toolbar.js";
 import { createTree } from "./tree.js";
+import { createViewMenuController } from "./viewMenuController.js";
 import { initViewer } from "../viewer/viewer3d.js";
 
 export function createLayout() {
     const layout = new dhx.Layout("app", {
+        type: "line",
         rows: [
             { id: "topbar", height: 40 },
             {
-                cols: [
-                    { id: "tree", width: 320 },
+                rows: [
+                    { id: "viewerToolbar", height: 55 },
                     {
-                        rows: [
-                            { id: "viewerToolbar", height: 55 },
+                        cols: [
+                            { id: "tree", width: 320, css: "browser-layout-cell" },
                             { id: "viewer" }
                         ]
                     }
@@ -26,12 +28,27 @@ export function createLayout() {
     const { tree, setTreeData, onSelect, selectByUniqueId, clearSelection: clearTreeSelection, setInteractionEnabled: setTreeInteractionEnabled } = createTree();
     let viewerApi = null;
     let hasSelection = false;
+    let hasModelLoaded = false;
     let isolateActive = false;
+    let viewMenuController = null;
 
     function syncToolbarState() {
         setItemEnabled("load", !isolateActive);
-        setItemEnabled("reset", !isolateActive);
-        setItemEnabled("isolate", isolateActive ? true : hasSelection);
+
+        const resetEnabled = hasModelLoaded && !isolateActive;
+        const viewControlsEnabled = hasModelLoaded;
+        setItemEnabled("reset", resetEnabled);
+        setItemEnabled("projectionMode", viewControlsEnabled);
+        setItemEnabled("orthoFacesMenu", viewControlsEnabled);
+
+        // Isolate must remain clickable while active, so user can turn it off.
+        const isolateEnabled = hasModelLoaded && (isolateActive ? true : hasSelection);
+        setItemEnabled("isolate", isolateEnabled);
+    }
+
+    function setModelLoadedState(loaded) {
+        hasModelLoaded = !!loaded;
+        syncToolbarState();
     }
 
     function setIsolationState(enabled) {
@@ -51,7 +68,7 @@ export function createLayout() {
         syncToolbarState();
     }
 
-    const { toolbar, setToggleState, setItemEnabled } = createToolbar({
+    const { toolbar, setToggleState, setItemEnabled, setControlValue } = createToolbar({
         onClick: (id, state = {}) => {
             if (id === "load") {
                 if (!viewerApi || typeof viewerApi.loadModel !== "function") {
@@ -63,6 +80,7 @@ export function createLayout() {
                 const modelPath = "./assets/models/";
 
                 viewerCell.progressShow();
+                setModelLoadedState(false);
                 setIsolationState(false);
                 setSelectionState(false);
                 viewerApi.loadModel(modelName, modelPath);
@@ -83,15 +101,54 @@ export function createLayout() {
                 }
 
                 console.log("Isolate toggled:", applied);
+                return;
+            }
+
+            if (id === "reset") {
+                if (!viewerApi || typeof viewerApi.resetView !== "function") {
+                    console.warn("Viewer resetView is not available");
+                    return;
+                }
+
+                viewerApi.resetView();
+                return;
+            }
+
+            if (viewMenuController && viewMenuController.handleToolbarClick(id, state)) {
+                return;
             }
         }
     });
 
-    layout.getCell("tree").attach(tree);
+    viewMenuController = createViewMenuController({
+        getViewerApi: () => viewerApi,
+        setProjectionControlValue: (mode) => {
+            setControlValue("projectionMode", mode === "orthographic" ? "Ortho" : "Isometric");
+        }
+    });
+
+    const browserTabs = new dhx.Tabbar(null, {
+        css: "browser-tabs",
+        views: [
+            {
+                id: "model",
+                tab: "MODEL"
+            }
+        ]
+    });
+
+    browserTabs.getCell("model").attach(tree);
+
+    layout.getCell("tree").attach(browserTabs);
     layout.getCell("viewerToolbar").attach(toolbar);
 
+    // Startup state (no model loaded yet): only "Load" stays enabled.
+    syncToolbarState();
+
     layout.getCell("topbar").attachHTML(`
-        <div class="topbar-placeholder"></div>
+        <div class="topbar-placeholder">
+            <div class="topbar-title">Assembly Workspace</div>
+        </div>
     `);
 
     layout.getCell("viewer").attachHTML(`
@@ -100,7 +157,8 @@ export function createLayout() {
 
     layout.getCell("properties").attachHTML(`
         <div class="properties-placeholder">
-            Properties / Info Panel
+            <div class="panel-title">Properties</div>
+            <div class="panel-subtitle">Select a component to inspect metadata.</div>
         </div>
     `);
 
@@ -115,6 +173,13 @@ export function createLayout() {
             onLoaded: (payload) => {
                 if (payload && Array.isArray(payload.treeData)) {
                     setTreeData(payload.treeData);
+                }
+
+                const modelLoadedNow = !!(payload && Array.isArray(payload.treeData) && payload.treeData.length > 0);
+                setModelLoadedState(modelLoadedNow);
+
+                if (payload && typeof payload.getProjectionMode === "function") {
+                    viewMenuController.syncProjectionFromViewer();
                 }
 
                 setIsolationState(false);
@@ -183,6 +248,7 @@ if (!treeSelectionBound && payload) {
                 setSelectionState(true);
             },
             onError: () => {
+                setModelLoadedState(false);
                 setIsolationState(false);
                 setSelectionState(false);
                 viewerCell.progressHide();

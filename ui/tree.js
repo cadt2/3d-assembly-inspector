@@ -4,12 +4,12 @@
 // - keeps selectByUniqueId(uniqueId) mapping
 
 const treeHoverClass = dhx.cssManager.add({
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#5b9ef6",
     color: "#ffffff",
 }, "tree-hover-blue");
 
 const treeSelectedClass = dhx.cssManager.add({
-    backgroundColor: "#f97316",
+    backgroundColor: "#2f80ed",
     color: "#ffffff",
 }, "tree-selected-orange");
 
@@ -48,13 +48,18 @@ export function createTree() {
         data: [],
         template: (item) => {
             const classes = [treeRowClass];
+            const isHovered = item.id === hoveredTreeId;
+            const isSelected = item.id === selectedTreeId;
+            let inlineStyle = "";
 
-            if (item.id === hoveredTreeId) {
+            if (isHovered) {
                 classes.push(treeHoverClass);
+                inlineStyle = "background:#cfe3ff;color:#10233a;";
             }
 
-            if (item.id === selectedTreeId) {
+            if (isSelected) {
                 classes.push(treeSelectedClass);
+                inlineStyle = "background:#8fbfff;color:#0b1f36;font-weight:600;";
             }
 
             if (!interactionEnabled) {
@@ -63,7 +68,7 @@ export function createTree() {
 
             // preserve original value (may be empty) - do not normalize
             const display = (item.value !== undefined && item.value !== null) ? item.value : "";
-            return `<div class="${classes.join(" ")}">${display}</div>`;
+            return `<div class="${classes.join(" ")}" style="${inlineStyle}">${display}</div>`;
         }
     });
 

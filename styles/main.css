@@ -16,6 +16,17 @@ html, body {
   border-bottom: 1px solid #d9d9d9;
   box-sizing: border-box;
   background: #f7f7f7;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.topbar-title {
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3f4954;
+  letter-spacing: 0.2px;
 }
 
 .properties-placeholder {
@@ -30,9 +41,31 @@ html, body {
   color: #666;
 }
 
+.panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b5560;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+}
+
+.panel-subtitle {
+  font-size: 12px;
+  color: #6d7680;
+}
+
 .viewer-toolbar {
   border-bottom: 1px solid #d9d9d9;
-  background: #f7f9fc;
+  background: var(--panel-bg);
+}
+
+.viewer-toolbar,
+.viewer-toolbar--popup-menu {
+  --dhx-background-primary: var(--panel-bg);
+  --dhx-background-secondary: #e6ecf3;
+  --dhx-background-additional: #e6ecf3;
+  --dhx-s-toolbar-background: var(--dhx-background-primary);
 }
 
 .viewer-toolbar .toolbar-icon-link {
@@ -59,4 +92,75 @@ html, body {
 
 .viewer-toolbar .toolbar-toggle-active .mdi {
   color: #1f7f93;
+}
+
+.viewer-toolbar .toolbar-ortho-list {
+  min-height: 32px;
+  margin-left: 6px;
+}
+
+:root {
+  --panel-bg: #edf2f7;
+  --cad-gray-50: #fdfefe;
+  --cad-gray-100: #f8fafc;
+  --cad-gray-200: #eef2f6;
+  --cad-gray-300: #dde4ec;
+  --cad-gray-700: #4a5562;
+}
+
+.browser-layout-cell,
+.browser-layout-cell .dhx_layout-cell,
+.browser-layout-cell .dhx_layout-cell-content,
+.browser-layout-cell .dhx_cell-cont {
+  background: var(--panel-bg) !important;
+}
+
+.browser-tabs,
+.browser-tabs .dhx_view {
+  background: var(--panel-bg) !important;
+}
+
+/* Tab header styling (MODEL tab) */
+.browser-tabs .dhx_tabbar-header,
+.browser-tabs .dhx_tabbar-tabs,
+.browser-tabs .dhx_tablist {
+  background: var(--cad-gray-200) !important;
+  border-bottom: 1px solid var(--cad-gray-300) !important;
+}
+
+.browser-tabs .dhx_tab,
+.browser-tabs .dhx_tabbar-tab {
+  color: var(--cad-gray-700) !important;
+}
+
+.browser-tabs .dhx_tab--active,
+.browser-tabs .dhx_tabbar-tab--active,
+.browser-tabs .dhx_tab--selected,
+.browser-tabs .dhx_tabbar-tab--selected {
+  background: var(--cad-gray-50) !important;
+  border-color: var(--cad-gray-300) !important;
+}
+
+/* Keep tree zone neutral; tab contrast is handled only in the header. */
+.browser-layout-cell .parts-tree,
+.browser-layout-cell .dhx_tree,
+.browser-layout-cell .dhx_tree-list,
+.browser-layout-cell .dhx_tree-item,
+.browser-layout-cell .dhx_tree-item__content {
+  background: #ffffff !important;
+}
+
+/* Keep custom row rendering visually clean over the gray panel. */
+.browser-layout-cell .tree-row-base {
+  background: transparent !important;
+}
+
+/* Fallback: if DHTMLX native selected state appears, keep CAD blue selection. */
+.browser-layout-cell .dhx_tree-item--selected,
+.browser-layout-cell .dhx_tree-item--selected .dhx_tree-item__content,
+.browser-layout-cell .dhx_tree-item[aria-selected="true"],
+.browser-layout-cell .dhx_tree-item[aria-selected="true"] .dhx_tree-item__content {
+  background: #8fbfff !important;
+  color: #0b1f36 !important;
+  font-weight: 600 !important;
 }
