@@ -20,6 +20,11 @@ const treeRowClass = dhx.cssManager.add({
     boxSizing: "border-box",
 }, "tree-row-base");
 
+const treeDisabledClass = dhx.cssManager.add({
+    opacity: "0.55",
+    pointerEvents: "none",
+}, "tree-disabled-state");
+
 function buildParentMap(items, parentId = null, parentMapRef = new Map(), itemMap = new Map()) {
     items.forEach((item) => {
         parentMapRef.set(item.id, parentId);
@@ -36,6 +41,7 @@ function buildParentMap(items, parentId = null, parentMapRef = new Map(), itemMa
 export function createTree() {
     let selectedTreeId = null;
     let hoveredTreeId = null;
+    let interactionEnabled = true;
 
     const tree = new dhx.Tree(null, {
         css: "parts-tree",
@@ -51,6 +57,10 @@ export function createTree() {
                 classes.push(treeSelectedClass);
             }
 
+            if (!interactionEnabled) {
+                classes.push(treeDisabledClass);
+            }
+
             // preserve original value (may be empty) - do not normalize
             const display = (item.value !== undefined && item.value !== null) ? item.value : "";
             return `<div class="${classes.join(" ")}">${display}</div>`;
@@ -64,6 +74,8 @@ export function createTree() {
 
     // NOTE: now passes the tree node id (string) to the select handler.
     tree.events.on("ItemClick", (id) => {
+        if (!interactionEnabled) return;
+
         const item = tree.data.getItem(id);
         selectedTreeId = id;
 
@@ -81,11 +93,13 @@ export function createTree() {
     });
 
     tree.events.on("MouseOver", (id) => {
+        if (!interactionEnabled) return;
         hoveredTreeId = id;
         tree.paint();
     });
 
     tree.events.on("MouseOut", () => {
+        if (!interactionEnabled) return;
         hoveredTreeId = null;
         tree.paint();
     });
@@ -93,6 +107,15 @@ export function createTree() {
     function setTreeData(data) {
         tree.data.removeAll();
         tree.data.parse(data);
+
+        // Auto-expand top-level containers so the user sees model contents immediately.
+        if (Array.isArray(data)) {
+            data.forEach((item) => {
+                if (item && item.id && Array.isArray(item.items) && item.items.length > 0) {
+                    tree.expand(item.id);
+                }
+            });
+        }
 
         uniqueIdToTreeId = new Map();
         parentMap = new Map();
@@ -158,6 +181,23 @@ export function createTree() {
         tree.paint();
     }
 
+    function clearSelection() {
+        selectedTreeId = null;
+        tree.selection.remove();
+        tree.paint();
+    }
+
+    function setInteractionEnabled(enabled) {
+        interactionEnabled = !!enabled;
+        if (interactionEnabled) {
+            tree.paint();
+            return;
+        }
+
+        hoveredTreeId = null;
+        tree.paint();
+    }
+
     // helper to get item data by treeId (useful for UI panels)
     function getItemData(treeId) {
         return itemMap.get(treeId) || null;
@@ -169,6 +209,8 @@ export function createTree() {
         onSelect,
         selectByUniqueId,
         selectByTreeId,
+        clearSelection,
+        setInteractionEnabled,
         getItemData
     };
 }

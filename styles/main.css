@@ -34,3 +34,29 @@ html, body {
   border-bottom: 1px solid #d9d9d9;
   background: #f7f9fc;
 }
+
+.viewer-toolbar .toolbar-icon-link {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #5a6470;
+  min-width: 34px;
+  min-height: 34px;
+}
+
+.viewer-toolbar .toolbar-icon-link .mdi {
+  font-size: 22px;
+}
+
+.viewer-toolbar .toolbar-icon-link:hover {
+  color: #3a4350;
+}
+
+.viewer-toolbar .toolbar-toggle-active {
+  background: transparent !important;
+  color: #1f7f93;
+}
+
+.viewer-toolbar .toolbar-toggle-active .mdi {
+  color: #1f7f93;
+}

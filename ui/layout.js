@@ -23,8 +23,69 @@ export function createLayout() {
 
     //dhx.setTheme("contrast-light"); 
 
-    const { tree, setTreeData, onSelect, selectByUniqueId } = createTree();
-    const toolbar = createToolbar();
+    const { tree, setTreeData, onSelect, selectByUniqueId, clearSelection: clearTreeSelection, setInteractionEnabled: setTreeInteractionEnabled } = createTree();
+    let viewerApi = null;
+    let hasSelection = false;
+    let isolateActive = false;
+
+    function syncToolbarState() {
+        setItemEnabled("load", !isolateActive);
+        setItemEnabled("reset", !isolateActive);
+        setItemEnabled("isolate", isolateActive ? true : hasSelection);
+    }
+
+    function setIsolationState(enabled) {
+        isolateActive = !!enabled;
+        setToggleState("isolate", isolateActive);
+        setTreeInteractionEnabled(!isolateActive);
+        syncToolbarState();
+    }
+
+    function setSelectionState(selected) {
+        hasSelection = !!selected;
+        if (!hasSelection) {
+            setIsolationState(false);
+            return;
+        }
+
+        syncToolbarState();
+    }
+
+    const { toolbar, setToggleState, setItemEnabled } = createToolbar({
+        onClick: (id, state = {}) => {
+            if (id === "load") {
+                if (!viewerApi || typeof viewerApi.loadModel !== "function") {
+                    console.warn("Viewer is not ready to load a model");
+                    return;
+                }
+
+                const modelName = "Glider-Retract-Landing-Gear.glb";
+                const modelPath = "./assets/models/";
+
+                viewerCell.progressShow();
+                setIsolationState(false);
+                setSelectionState(false);
+                viewerApi.loadModel(modelName, modelPath);
+                return;
+            }
+
+            if (id === "isolate") {
+                if (!viewerApi || typeof viewerApi.setIsolationEnabled !== "function") {
+                    setIsolationState(false);
+                    return;
+                }
+
+                const applied = viewerApi.setIsolationEnabled(!!state.pressed);
+                setIsolationState(applied);
+
+                if (applied && typeof viewerApi.clearSelectionVisuals === "function") {
+                    viewerApi.clearSelectionVisuals();
+                }
+
+                console.log("Isolate toggled:", applied);
+            }
+        }
+    });
 
     layout.getCell("tree").attach(tree);
     layout.getCell("viewerToolbar").attach(toolbar);
@@ -46,16 +107,22 @@ export function createLayout() {
     const viewerCell = layout.getCell("viewer");
     viewerCell.progressShow();
 
+    let treeSelectionBound = false;
+
     dhx.awaitRedraw().then(() => {
-        initViewer("viewer-root", {
+        viewerApi = initViewer("viewer-root", {
+            autoLoad: false,
             onLoaded: (payload) => {
                 if (payload && Array.isArray(payload.treeData)) {
                     setTreeData(payload.treeData);
                 }
 
+                setIsolationState(false);
+                setSelectionState(false);
+
 // Adaptación segura: soporta viewer.handleTreeSelection (si existe) o cae a selectNodeByUniqueId.
 // No modificamos el tree; resolvemos el treeId -> uniqueId si es necesario.
-if (payload) {
+if (!treeSelectionBound && payload) {
     // Preferimos usar handleTreeSelection si el viewer lo expone (menos mapeo aquí).
     if (typeof payload.handleTreeSelection === "function") {
         onSelect((treeIdOrItem) => {
@@ -64,12 +131,16 @@ if (payload) {
             if (typeof treeIdOrItem === "string") {
                 // Pasamos directamente el treeId al viewer (viewer decide cómo interpretarlo)
                 payload.handleTreeSelection(treeIdOrItem);
+                if (!treeIdOrItem.startsWith("node_root_")) {
+                    setSelectionState(true);
+                }
                 return;
             }
             // si es un objeto (legacy), resolvemos uniqueId y formateamos como node_<id>
             if (treeIdOrItem && treeIdOrItem.data && treeIdOrItem.data.uniqueId !== undefined) {
                 const uid = treeIdOrItem.data.uniqueId;
                 payload.handleTreeSelection(`node_${uid}`);
+                setSelectionState(true);
             }
         });
     } else if (typeof payload.selectNodeByUniqueId === "function") {
@@ -88,24 +159,32 @@ if (payload) {
 
             if (unique !== undefined && unique !== null) {
                 payload.selectNodeByUniqueId(unique);
+                setSelectionState(true);
             } else {
                 // útil para depuración si algo viene inesperado
                 console.warn("layout.js: could not resolve uniqueId from tree selection:", treeIdOrItem);
             }
         });
     }
+
+    treeSelectionBound = true;
 }
 
                 viewerCell.progressHide();
             },
             onNodePicked: (picked) => {
                 if (!picked) {
+                    clearTreeSelection();
+                    setSelectionState(false);
                     return;
                 }
 
                 selectByUniqueId(picked.uniqueId);
+                setSelectionState(true);
             },
             onError: () => {
+                setIsolationState(false);
+                setSelectionState(false);
                 viewerCell.progressHide();
             }
         });
