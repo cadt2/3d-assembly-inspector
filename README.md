@@ -41,6 +41,30 @@ Current goals include:
 - part isolation
 - educational exploration of assembly structure
 
+## Current Project Status (April 2026)
+
+The repository currently includes a stable experimental baseline with recent UX and viewer improvements focused on CAD-like navigation consistency.
+
+Recent decisions and why they were applied:
+
+- **Tree hierarchy normalization is now structural (not name-based):**
+        previous logic depended on specific wrapper names such as `Solid1`. This was replaced with a structural rule so imported assemblies from different exporters are handled more consistently.
+
+- **Parent label is preserved when collapsing technical single-child levels:**
+        when a technical intermediate node exists, the visible node keeps the parent semantic name to avoid losing meaningful assembly labels.
+
+- **Orthographic framing was tightened while keeping bounding-box fit:**
+        Ortho views now start closer to the model without breaking model centering logic based on computed bounds.
+
+- **Mouse wheel zoom was softened:**
+        wheel precision parameters were tuned to reduce aggressive zoom jumps and improve control during close inspection.
+
+- **Selection highlight now preserves material appearance:**
+        selection uses color overlay without outline/material replacement to keep reflections, shading, and relief details visible.
+
+- **ViewCube readability and orientation were improved:**
+        face labels were updated for clearer readability, FRONT/BACK mapping was corrected, and the cube size was increased for better usability.
+
 ## Planned Direction
 
 The broader system is intended to evolve toward:
