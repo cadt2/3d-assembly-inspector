@@ -14,13 +14,13 @@ export const DEFAULT_VIEWER_ENV = {
     orbitSensitivity: 0.0025,
     // Multiplier applied to current model radius to compute wheel precision.
     // Lower resulting precision means faster zoom response.
-    wheelPrecisionFactor: 40,
+    wheelPrecisionFactor: 70,
     // Lower clamp for computed wheel precision.
     // Prevents overly aggressive zoom on tiny models.
-    wheelPrecisionMin: 80,
+    wheelPrecisionMin: 140,
     // Upper clamp for computed wheel precision.
     // Prevents overly slow zoom on very large models.
-    wheelPrecisionMax: 500
+    wheelPrecisionMax: 800
   },
   camera: {
     // Initial lower zoom limit before any model is loaded/fitted.
@@ -44,7 +44,14 @@ export const DEFAULT_VIEWER_ENV = {
     // Multiplier used to compute near clipping distance from model radius.
     minZFactor: 0.001,
     // Absolute minimum near clipping distance.
-    minMinZ: 0.001
+    minMinZ: 0.001,
+    // Orthographic fit multiplier relative to computed camera radius.
+    // Lower values frame the model closer in Ortho while keeping bbox-based centering.
+    orthoZoomFactor: 0.48,
+    // Ortho minimum framing clamp based on current model radius.
+    orthoMinFitFactor: 0.08,
+    // Ortho maximum framing clamp based on current model radius.
+    orthoMaxFitFactor: 6
   },
   ground: {
     // Ground plane size = max(modelDiagonal * sizeFactor, minSize).

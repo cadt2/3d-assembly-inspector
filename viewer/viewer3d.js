@@ -267,27 +267,17 @@ export function initViewer(containerId, options = {}) {
     return out;
   }
 
-  function isSyntheticSolidWrapper(node) {
-    if (!node) return false;
-    const name = (node.name || "").trim();
-    return /^solid1$/i.test(name);
-  }
-
   function getIncludedSceneChildren(node) {
     if (!node || typeof node.getChildren !== "function") return [];
     return node.getChildren().filter(child => shouldIncludeSceneNode(child));
   }
 
+  function hasRenderableGeometry(node) {
+    return !!(node && typeof node.getTotalVertices === "function" && node.getTotalVertices() > 0);
+  }
+
   function normalizeNodeForTree(node) {
     if (!shouldIncludeSceneNode(node)) return [];
-
-    const includedChildren = getIncludedSceneChildren(node);
-
-    // Export normalization: always collapse synthetic "Solid1" wrapper and
-    // promote its children to the parent level.
-    if (isSyntheticSolidWrapper(node)) {
-      return buildTreeItemsFromChildren(includedChildren);
-    }
 
     return [buildTreeNode(node)];
   }
@@ -300,16 +290,11 @@ export function initViewer(containerId, options = {}) {
     return out;
   }
 
-  function shouldCollapseRedundantSameNameChild(node) {
+  function shouldPromoteSingleChildLevel(node) {
     const children = getIncludedSceneChildren(node);
     if (children.length !== 1) return false;
-
-    const onlyChild = children[0];
-    const parentName = (node.name || "").trim().toLowerCase();
-    const childName = (onlyChild.name || "").trim().toLowerCase();
-    if (!parentName || !childName) return false;
-
-    return parentName === childName;
+    // Keep the parent as the visible semantic node and collapse the technical only-child level.
+    return !hasRenderableGeometry(node);
   }
 
   // buildTreeNode marks only real branches as open; leaves stay as plain items.
@@ -317,9 +302,9 @@ export function initViewer(containerId, options = {}) {
     const children = getIncludedSceneChildren(node);
     let normalizedItems = buildTreeItemsFromChildren(children);
 
-    // Remove redundant hierarchy level when parent and only child share the same name.
-    // Example: F_1/F_1 -> keep one F_1 and promote grand-children.
-    if (shouldCollapseRedundantSameNameChild(node)) {
+    // Promote children from a technical single-child level while preserving parent label.
+    // Example: F_6/SolidX -> keep F_6 and show SolidX's children under F_6.
+    if (shouldPromoteSingleChildLevel(node)) {
       const onlyChild = children[0];
       const promotedChildren = getIncludedSceneChildren(onlyChild);
       normalizedItems = buildTreeItemsFromChildren(promotedChildren);
@@ -333,7 +318,7 @@ export function initViewer(containerId, options = {}) {
         nodeId: node.id,
         nodeName: node.name || `node_${node.uniqueId}`,
         nodeType: typeof node.getClassName === "function" ? node.getClassName() : "Unknown",
-        isPart: typeof node.getTotalVertices === "function" && node.getTotalVertices() > 0
+        isPart: hasRenderableGeometry(node)
       }
     };
 
@@ -428,10 +413,14 @@ export function initViewer(containerId, options = {}) {
     const renderHeight = Math.max(engine.getRenderHeight(), 1);
     const aspect = renderWidth / renderHeight;
 
-    // Tie ortho zoom to ArcRotate radius so existing wheel controls remain useful.
-    const baseSize = Math.max(currentRadius * 1.2, 0.35);
-    const zoomSize = Math.max(camera.radius * 0.7, 0.15);
-    const halfHeight = Math.max(Math.min(zoomSize, baseSize * 8), baseSize * 0.12);
+    // Tie ortho zoom to ArcRotate radius so existing wheel controls remain useful,
+    // with tighter defaults to avoid an overly distant initial Ortho framing.
+    const baseSize = Math.max(currentRadius, 0.35);
+    const zoomSize = Math.max(camera.radius * env.camera.orthoZoomFactor, 0.08);
+    const halfHeight = Math.max(
+      Math.min(zoomSize, baseSize * env.camera.orthoMaxFitFactor),
+      baseSize * env.camera.orthoMinFitFactor
+    );
     const halfWidth = halfHeight * aspect;
 
     camera.orthoLeft = -halfWidth;
@@ -669,42 +658,15 @@ export function initViewer(containerId, options = {}) {
   function applySelectionToMesh(mesh) {
     if (!mesh) return;
 
-    if (isInstanceLike(mesh)) {
-      // InstancedMesh cannot receive a material assignment directly.
-      mesh.overlayColor = new BABYLON.Color3(0.15, 0.85, 0.9);
-      mesh.overlayAlpha = 0.6;
-      mesh.renderOverlay = true;
-      selectedInstanceOverlays.add(mesh);
-      return;
-    }
+    // Use overlay/outline only to preserve original material shading and reflections.
+    // This keeps surface relief/vertex highlights visible under current environment lighting.
+    mesh.overlayColor = new BABYLON.Color3(0.15, 0.85, 0.9);
+    mesh.overlayAlpha = isInstanceLike(mesh) ? 0.58 : 0.28;
+    mesh.renderOverlay = true;
+    selectedInstanceOverlays.add(mesh);
 
-    if (!mesh.material || typeof mesh.material.clone !== "function") return;
-
-    if (selectedMeshMaterials.has(mesh)) return;
-
-    const originalMaterial = mesh.material;
-    const cloned = originalMaterial.clone(`sel_${originalMaterial.name || "mat"}_${mesh.uniqueId}`);
-    if (!cloned) return;
-
-    // Some Babylon versions/cloned materials may not auto-attach registered plugins.
-    if (!cloned.colorify) {
-      cloned.colorify = new ColorifyPluginMaterial(cloned);
-    }
-
-    mesh.material = cloned;
-
-    const plugin = cloned.pluginManager?.getPlugin?.("Colorify") || cloned.colorify;
-    if (plugin) {
-      // Autodesk Inventor-like cyan selection tint.
-      plugin.color = new BABYLON.Color3(0.15, 0.85, 0.9);
-      plugin.isEnabled = true;
-    }
-
-    mesh.renderOutline = true;
-    mesh.outlineColor = new BABYLON.Color3(0.15, 0.95, 1.0);
-    mesh.outlineWidth = Math.max((currentRadius || 1) * 0.0015, 0.008);
-
-    selectedMeshMaterials.set(mesh, { original: originalMaterial, cloned });
+    mesh.renderOutline = false;
+    mesh.outlineWidth = 0;
   }
 
   function applyContextVisibility(selectedArray, mode = "dim", dimFactor = 0.55) {

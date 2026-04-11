@@ -9,7 +9,7 @@ export function createViewCubeFeature({
   }
 
   const viewCubeLayerMask = 0x20000000;
-  const viewCubeSize = 0.98;
+  const viewCubeSize = 1.2;
   const orthoBetaEpsilon = 0.001;
   mainCamera.layerMask = 0x0FFFFFFF;
 
@@ -80,11 +80,6 @@ export function createViewCubeFeature({
   viewCube.edgesWidth = 1.2;
 
   function createFaceLabel(text, position, rotation) {
-    const texture = new BABYLON.DynamicTexture(`viewCubeFaceTex_${text}`, { width: 256, height: 256 }, scene, true);
-    texture.hasAlpha = true;
-    texture.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
-    texture.drawText(text, null, 152, "bold 72px Arial", "#243140", "transparent", true, true);
-
     const plane = BABYLON.MeshBuilder.CreatePlane(`viewCubeFace_${text}`, { size: viewCubeSize * 0.66 }, scene);
     plane.parent = viewCube;
     plane.position.copyFrom(position);
@@ -92,24 +87,56 @@ export function createViewCubeFeature({
     plane.isPickable = false;
     markAsViewerHelper(plane);
     plane.layerMask = viewCubeLayerMask;
-
     const mat = new BABYLON.StandardMaterial(`viewCubeFaceMat_${text}`, scene);
-    mat.diffuseTexture = texture;
-    mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+    mat.diffuseColor = new BABYLON.Color3(0.96, 0.97, 0.99);
+    mat.emissiveColor = new BABYLON.Color3(0.96, 0.97, 0.99);
     mat.specularColor = new BABYLON.Color3(0, 0, 0);
-    mat.backFaceCulling = false;
+    mat.backFaceCulling = true;
     mat.disableLighting = true;
     plane.material = mat;
 
-    return { plane, mat, texture };
+    const uiTexture = BABYLON.GUI?.AdvancedDynamicTexture?.CreateForMesh
+      ? BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(plane, 512, 512, false)
+      : null;
+
+    if (uiTexture && BABYLON.GUI.TextBlock && BABYLON.GUI.Rectangle) {
+      const badge = new BABYLON.GUI.Rectangle(`viewCubeFaceBadge_${text}`);
+      badge.width = 0.98;
+      badge.height = 0.66;
+      badge.cornerRadius = 22;
+      badge.thickness = 5;
+      badge.color = "#4f5d70";
+      badge.background = "#f6f8fb";
+
+      const textBlock = new BABYLON.GUI.TextBlock(`viewCubeFaceText_${text}`, text);
+      textBlock.color = "#1f2f44";
+      textBlock.fontFamily = "Arial";
+      textBlock.fontWeight = "700";
+      textBlock.fontSize = text.length > 5 ? 96 : 120;
+      textBlock.textHorizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+      textBlock.textVerticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+
+      badge.addControl(textBlock);
+      uiTexture.addControl(badge);
+      return { plane, mat, uiTexture };
+    }
+
+    // Fallback when GUI module is unavailable.
+    const fallbackTexture = new BABYLON.DynamicTexture(`viewCubeFaceTex_${text}`, { width: 256, height: 256 }, scene, true);
+    fallbackTexture.hasAlpha = true;
+    fallbackTexture.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+    fallbackTexture.drawText(text, null, 152, "bold 72px Arial", "#243140", "transparent", true, true);
+    mat.diffuseTexture = fallbackTexture;
+
+    return { plane, mat, texture: fallbackTexture };
   }
 
   const faceOffset = (viewCubeSize * 0.5) + 0.002;
   const faceLabels = [
     createFaceLabel("TOP", new BABYLON.Vector3(0, faceOffset, 0), new BABYLON.Vector3(Math.PI / 2, 0, 0)),
     createFaceLabel("BOTTOM", new BABYLON.Vector3(0, -faceOffset, 0), new BABYLON.Vector3(-Math.PI / 2, 0, 0)),
-    createFaceLabel("BACK", new BABYLON.Vector3(0, 0, faceOffset), new BABYLON.Vector3(0, 0, 0)),
-    createFaceLabel("FRONT", new BABYLON.Vector3(0, 0, -faceOffset), new BABYLON.Vector3(0, Math.PI, 0)),
+    createFaceLabel("FRONT", new BABYLON.Vector3(0, 0, faceOffset), new BABYLON.Vector3(0, Math.PI, 0)),
+    createFaceLabel("BACK", new BABYLON.Vector3(0, 0, -faceOffset), new BABYLON.Vector3(0, 0, 0)),
     createFaceLabel("LEFT", new BABYLON.Vector3(faceOffset, 0, 0), new BABYLON.Vector3(0, -Math.PI / 2, 0)),
     createFaceLabel("RIGHT", new BABYLON.Vector3(-faceOffset, 0, 0), new BABYLON.Vector3(0, Math.PI / 2, 0))
   ];
@@ -368,10 +395,11 @@ export function createViewCubeFeature({
       try {
         scene.onPointerObservable.remove(pointerObserver);
       } catch (e) {}
-      faceLabels.forEach(({ plane, mat, texture }) => {
+      faceLabels.forEach(({ plane, mat, texture, uiTexture }) => {
         try { plane.dispose(false, true); } catch (e) {}
         try { mat.dispose(); } catch (e) {}
         try { texture.dispose(); } catch (e) {}
+        try { uiTexture.dispose(); } catch (e) {}
       });
       try {
         viewCubeLight.dispose();
