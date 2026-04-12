@@ -2,6 +2,8 @@
 
 Interactive web-based system for exploring, understanding, and documenting 3D assemblies through a CAD-inspired interface.
 
+**Live demo:** https://cadt2.github.io/3d-assembly-inspector/
+
 ## Overview
 
 **3D Assembly Inspector** is a portfolio and educational project focused on visualizing imported 3D assemblies in a clean, understandable way.
