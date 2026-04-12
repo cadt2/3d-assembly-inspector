@@ -706,6 +706,14 @@ export function initViewer(containerId, options = {}) {
 
   let groundMarker = null;
   function createOrUpdateGroundMarker(center, size) {
+    const showGroundMarker = env?.ground?.showMarker !== false;
+    if (!showGroundMarker) {
+      if (groundMarker && !groundMarker.isDisposed?.()) {
+        groundMarker.setEnabled(false);
+      }
+      return;
+    }
+
     const markerDiameter = Math.max(size * 0.6, 0.1);
     if (!groundMarker || groundMarker.isDisposed()) {
       groundMarker = BABYLON.MeshBuilder.CreateCylinder("groundMarker", { diameter: markerDiameter, height: 0.002, tessellation: 64 }, scene);

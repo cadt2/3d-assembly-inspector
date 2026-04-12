@@ -186,7 +186,18 @@ export function createLayout() {
 
     dhx.awaitRedraw().then(() => {
         viewerApi = initViewer("viewer-root", {
-            autoLoad: false,
+            // [DEMO] autoLoad activado para GitHub Pages. Para volver al flujo manual:
+            // 1. Cambiar autoLoad a false
+            // 2. Quitar modelFile y modelPath de aquí
+            // 3. Restaurar viewerCell.progressHide() al final del onLoaded (sin condicional)
+            autoLoad: true,
+            modelFile: "Glider-Retract-Landing-Gear.glb",
+            modelPath: "./assets/models/",
+            // [DEMO] oculta el marcador circular de referencia en el piso.
+            // Para volver a mostrarlo, elimina esta sección o usa showMarker: true.
+            environment: {
+                ground: { showMarker: false }
+            },
             onLoaded: (payload) => {
                 if (payload && Array.isArray(payload.treeData)) {
                     setTreeData(payload.treeData);
@@ -256,7 +267,11 @@ if (!treeSelectionBound && payload) {
     treeSelectionBound = true;
 }
 
-                viewerCell.progressHide();
+                // [DEMO] Solo ocultar spinner cuando el modelo cargó (treeData presente).
+                // En flujo manual sin autoLoad, mover este progressHide() fuera del if.
+                if (modelLoadedNow) {
+                    viewerCell.progressHide();
+                }
             },
             onNodePicked: (picked) => {
                 if (!picked) {
