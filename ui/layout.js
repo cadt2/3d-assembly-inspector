@@ -25,17 +25,26 @@ export function createLayout() {
 
     //dhx.setTheme("contrast-light"); 
 
-    const { tree, setTreeData, onSelect, selectByUniqueId, clearSelection: clearTreeSelection, setInteractionEnabled: setTreeInteractionEnabled } = createTree();
+    const {
+        tree,
+        setTreeData,
+        onSelect,
+        selectByUniqueId,
+        clearSelection: clearTreeSelection,
+        setInteractionEnabled: setTreeInteractionEnabled,
+        setEnabledScope: setTreeEnabledScope
+    } = createTree();
     let viewerApi = null;
     let hasSelection = false;
     let hasModelLoaded = false;
     let isolateActive = false;
+    let selectedTreeId = null;
     let viewMenuController = null;
 
     function syncToolbarState() {
         setItemEnabled("load", !isolateActive);
 
-        const resetEnabled = hasModelLoaded && !isolateActive;
+        const resetEnabled = hasModelLoaded;
         const viewControlsEnabled = hasModelLoaded;
         setItemEnabled("reset", resetEnabled);
         setItemEnabled("projectionMode", viewControlsEnabled);
@@ -54,14 +63,21 @@ export function createLayout() {
     function setIsolationState(enabled) {
         isolateActive = !!enabled;
         setToggleState("isolate", isolateActive);
-        setTreeInteractionEnabled(!isolateActive);
+        setTreeInteractionEnabled(true);
+        setTreeEnabledScope(isolateActive ? selectedTreeId : null);
         syncToolbarState();
     }
 
     function setSelectionState(selected) {
         hasSelection = !!selected;
         if (!hasSelection) {
-            setIsolationState(false);
+            if (!isolateActive) {
+                selectedTreeId = null;
+                setIsolationState(false);
+                return;
+            }
+
+            syncToolbarState();
             return;
         }
 
@@ -83,6 +99,7 @@ export function createLayout() {
                 setModelLoadedState(false);
                 setIsolationState(false);
                 setSelectionState(false);
+                selectedTreeId = null;
                 viewerApi.loadModel(modelName, modelPath);
                 return;
             }
@@ -184,6 +201,7 @@ export function createLayout() {
 
                 setIsolationState(false);
                 setSelectionState(false);
+                selectedTreeId = null;
 
 // Adaptación segura: soporta viewer.handleTreeSelection (si existe) o cae a selectNodeByUniqueId.
 // No modificamos el tree; resolvemos el treeId -> uniqueId si es necesario.
@@ -197,6 +215,7 @@ if (!treeSelectionBound && payload) {
                 // Pasamos directamente el treeId al viewer (viewer decide cómo interpretarlo)
                 payload.handleTreeSelection(treeIdOrItem);
                 if (!treeIdOrItem.startsWith("node_root_")) {
+                    selectedTreeId = treeIdOrItem;
                     setSelectionState(true);
                 }
                 return;
@@ -205,6 +224,7 @@ if (!treeSelectionBound && payload) {
             if (treeIdOrItem && treeIdOrItem.data && treeIdOrItem.data.uniqueId !== undefined) {
                 const uid = treeIdOrItem.data.uniqueId;
                 payload.handleTreeSelection(`node_${uid}`);
+                selectedTreeId = `node_${uid}`;
                 setSelectionState(true);
             }
         });
@@ -224,6 +244,7 @@ if (!treeSelectionBound && payload) {
 
             if (unique !== undefined && unique !== null) {
                 payload.selectNodeByUniqueId(unique);
+                selectedTreeId = `node_${unique}`;
                 setSelectionState(true);
             } else {
                 // útil para depuración si algo viene inesperado
@@ -244,6 +265,7 @@ if (!treeSelectionBound && payload) {
                     return;
                 }
 
+                selectedTreeId = picked.treeNodeId || `node_${picked.uniqueId}`;
                 selectByUniqueId(picked.uniqueId);
                 setSelectionState(true);
             },

@@ -155,12 +155,18 @@ html, body {
   background: transparent !important;
 }
 
-/* Fallback: if DHTMLX native selected state appears, keep CAD blue selection. */
-.browser-layout-cell .dhx_tree-item--selected,
-.browser-layout-cell .dhx_tree-item--selected .dhx_tree-item__content,
-.browser-layout-cell .dhx_tree-item[aria-selected="true"],
-.browser-layout-cell .dhx_tree-item[aria-selected="true"] .dhx_tree-item__content {
-  background: #8fbfff !important;
-  color: #0b1f36 !important;
+/* Dedicated tree selection theme for semantic parity with 3D selection color. */
+.browser-layout-cell .tree-green-theme {
+  --tree-selection-bg: #2f9e44;
+  --tree-selection-fg: #ffffff;
+}
+
+/* Fallback: if DHTMLX native selected state appears, keep semantic green selection. */
+.browser-layout-cell .tree-green-theme .dhx_tree-item--selected,
+.browser-layout-cell .tree-green-theme .dhx_tree-item--selected .dhx_tree-item__content,
+.browser-layout-cell .tree-green-theme .dhx_tree-item[aria-selected="true"],
+.browser-layout-cell .tree-green-theme .dhx_tree-item[aria-selected="true"] .dhx_tree-item__content {
+  background: var(--tree-selection-bg) !important;
+  color: var(--tree-selection-fg) !important;
   font-weight: 600 !important;
 }

@@ -121,6 +121,22 @@ Logical interpretation layer
 DHTMLX tree + properties UI
 ```
 
+## Viewer Module Convention
+
+To keep the viewer maintainable as behaviors grow, this repository follows a strict folder rule:
+
+- `viewer/actions/` contains only isolated viewer actions.
+- Each action file must be named after the action it implements.
+- Example pattern: `isolate_selection`, `select_selection`, `view_fit_reset`.
+- Non-action modules must stay outside `viewer/actions/`.
+- Shared helpers and orchestration stay in the viewer root (or another non-actions technical folder if introduced later).
+
+Why this rule exists:
+
+- predictable file discovery for the team
+- cleaner reviews and safer refactors
+- less architectural drift over time
+
 ## Quick Start
 
 This project is a lightweight frontend prototype and can be run as a static site.

@@ -9,9 +9,9 @@ const treeHoverClass = dhx.cssManager.add({
 }, "tree-hover-blue");
 
 const treeSelectedClass = dhx.cssManager.add({
-    backgroundColor: "#2f80ed",
+    backgroundColor: "#2f9e44",
     color: "#ffffff",
-}, "tree-selected-orange");
+}, "tree-selected-green");
 
 const treeRowClass = dhx.cssManager.add({
     display: "block",
@@ -42,14 +42,42 @@ export function createTree() {
     let selectedTreeId = null;
     let hoveredTreeId = null;
     let interactionEnabled = true;
+    let enabledTreeIds = null;
+
+    function isTreeItemEnabled(treeId) {
+        if (!interactionEnabled) return false;
+        if (!enabledTreeIds) return true;
+        return enabledTreeIds.has(treeId);
+    }
+
+    function collectDescendantIds(rootTreeId) {
+        const allowed = new Set();
+        if (!rootTreeId || !itemMap.has(rootTreeId)) return allowed;
+
+        const stack = [rootTreeId];
+        while (stack.length > 0) {
+            const currentId = stack.pop();
+            if (allowed.has(currentId)) continue;
+            allowed.add(currentId);
+
+            const item = itemMap.get(currentId);
+            const children = Array.isArray(item?.items) ? item.items : [];
+            children.forEach(child => {
+                if (child?.id) stack.push(child.id);
+            });
+        }
+
+        return allowed;
+    }
 
     const tree = new dhx.Tree(null, {
-        css: "parts-tree",
+        css: "parts-tree tree-green-theme",
         data: [],
         template: (item) => {
             const classes = [treeRowClass];
             const isHovered = item.id === hoveredTreeId;
             const isSelected = item.id === selectedTreeId;
+            const isEnabled = isTreeItemEnabled(item.id);
             let inlineStyle = "";
 
             if (isHovered) {
@@ -59,10 +87,10 @@ export function createTree() {
 
             if (isSelected) {
                 classes.push(treeSelectedClass);
-                inlineStyle = "background:#8fbfff;color:#0b1f36;font-weight:600;";
+                inlineStyle = "background:#2f9e44 !important;color:#ffffff !important;font-weight:700;border-radius:2px;";
             }
 
-            if (!interactionEnabled) {
+            if (!isEnabled) {
                 classes.push(treeDisabledClass);
             }
 
@@ -79,7 +107,7 @@ export function createTree() {
 
     // NOTE: now passes the tree node id (string) to the select handler.
     tree.events.on("ItemClick", (id) => {
-        if (!interactionEnabled) return;
+        if (!isTreeItemEnabled(id)) return;
 
         const item = tree.data.getItem(id);
         selectedTreeId = id;
@@ -98,7 +126,7 @@ export function createTree() {
     });
 
     tree.events.on("MouseOver", (id) => {
-        if (!interactionEnabled) return;
+        if (!isTreeItemEnabled(id)) return;
         hoveredTreeId = id;
         tree.paint();
     });
@@ -138,6 +166,7 @@ export function createTree() {
 
         selectedTreeId = null;
         hoveredTreeId = null;
+        enabledTreeIds = null;
         tree.paint();
     }
 
@@ -203,6 +232,27 @@ export function createTree() {
         tree.paint();
     }
 
+    function setEnabledScope(rootTreeId) {
+        if (!rootTreeId) {
+            enabledTreeIds = null;
+            tree.paint();
+            return;
+        }
+
+        enabledTreeIds = collectDescendantIds(rootTreeId);
+        expandParentChain(rootTreeId);
+        tree.expand(rootTreeId);
+
+        if (selectedTreeId && !enabledTreeIds.has(selectedTreeId)) {
+            selectedTreeId = rootTreeId;
+            tree.selection.remove();
+            tree.selection.add(rootTreeId);
+            tree.focusItem(rootTreeId);
+        }
+
+        tree.paint();
+    }
+
     // helper to get item data by treeId (useful for UI panels)
     function getItemData(treeId) {
         return itemMap.get(treeId) || null;
@@ -216,6 +266,7 @@ export function createTree() {
         selectByTreeId,
         clearSelection,
         setInteractionEnabled,
+        setEnabledScope,
         getItemData
     };
 }
