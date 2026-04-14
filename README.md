@@ -1,171 +1,174 @@
 # 3D Assembly Inspector
 
-Interactive web-based system for exploring, understanding, and documenting 3D assemblies through a CAD-inspired interface.
+*Optimized for desktop interaction using mouse-based controls.*
 
-**Live demo:** https://cadt2.github.io/3d-assembly-inspector/
+Interactive web-based system for exploring, analyzing, and structuring 3D assemblies through a CAD-inspired interface.
 
-## Overview
-
-**3D Assembly Inspector** is a portfolio and educational project focused on visualizing imported 3D assemblies in a clean, understandable way.
-
-The system is designed to help users:
-
-- inspect a 3D assembly visually
-- navigate components through a tree structure
-- identify parts or sub-assemblies inside a larger system
-- isolate selected elements for easier understanding
-- support future documentation and inventory workflows
-
-This project is inspired by the experience of navigating assemblies in professional CAD tools, but adapted into a lightweight web-based environment.
-
-## Interface Preview
-
-Current UI screenshot:
-
-![3D Assembly Inspector UI](assets/docs/ui-screenshot.png)
-
-## Project Goal
-
-The main goal of this project is to translate complex 3D assemblies into a more accessible visual learning experience.
-
-A practical example would be identifying a specific component inside a larger mechanical system, similar to how a dealership or technical service environment may need to visually locate a part before handling documentation, replacement, or explanation.
-
-## Current Scope
-
-This public repository focuses on the **visual and interaction layer** of the system.
-
-Current goals include:
-
-- CAD-like UI/UX structure
-- 3D viewer integration
-- assembly tree visualization
-- part and sub-assembly selection
-- part isolation
-- educational exploration of assembly structure
-
-## Current Project Status (April 2026)
-
-The repository currently includes a stable experimental baseline with recent UX and viewer improvements focused on CAD-like navigation consistency.
-
-Recent decisions and why they were applied:
-
-- **Tree hierarchy normalization is now structural (not name-based):**
-        previous logic depended on specific wrapper names such as `Solid1`. This was replaced with a structural rule so imported assemblies from different exporters are handled more consistently.
-
-- **Parent label is preserved when collapsing technical single-child levels:**
-        when a technical intermediate node exists, the visible node keeps the parent semantic name to avoid losing meaningful assembly labels.
-
-- **Orthographic framing was tightened while keeping bounding-box fit:**
-        Ortho views now start closer to the model without breaking model centering logic based on computed bounds.
-
-- **Mouse wheel zoom was softened:**
-        wheel precision parameters were tuned to reduce aggressive zoom jumps and improve control during close inspection.
-
-- **Selection highlight now preserves material appearance:**
-        selection uses color overlay without outline/material replacement to keep reflections, shading, and relief details visible.
-
-- **ViewCube readability and orientation were improved:**
-        face labels were updated for clearer readability, FRONT/BACK mapping was corrected, and the cube size was increased for better usability.
-
-## Planned Direction
-
-The broader system is intended to evolve toward:
-
-- internal JSON-based assembly structure
-- technical information attached to parts and sub-assemblies
-- optional product mapping such as part number or barcode
-- future integration with cloud-based document storage
-- optional NoSQL persistence
-- educational and documentation workflows
-
-At this stage, the focus remains intentionally simple in order to validate the UI, interaction flow, and internal data structure before moving into persistence or backend services.
-
-## Tech Stack
-
-- **JavaScript**
-- **BabylonJS**
-- **DHTMLX Suite 9.3**
-- **GLTF / GLB**
-- **HTML / CSS**
-
-## Interface Concept
-
-The application uses a CAD-inspired layout with four main areas:
-
-- **Main Toolbar** for primary actions
-- **Tree Panel** for assembly navigation
-- **3D Viewer** for real-time model interaction
-- **Properties / Info Panel** for contextual part information
-
-## Navigation Controls
-
-Current viewer navigation is optimized for CAD-style inspection:
-
-- **Mouse wheel scroll**: zoom in/out
-- **Middle mouse drag**: pan across the model on the ground plane
-- **Shift + middle mouse drag**: orbit around the current target
-
-Note: depending on device/browser behavior, some users may refer to orbit interaction as a Shift + wheel gesture. In this project, the primary orbit input is Shift + middle-drag.
-
-## Architecture Summary
-
-```text
-User (authenticated externally)
-        ↓
-Load application
-        ↓
-Import GLTF / GLB assembly
-        ↓
-BabylonJS scene visualization
-        ↓
-Logical interpretation layer
-        ↓
-DHTMLX tree + properties UI
-```
-
-## Viewer Module Convention
-
-To keep the viewer maintainable as behaviors grow, this repository follows a strict folder rule:
-
-- `viewer/actions/` contains only isolated viewer actions.
-- Each action file must be named after the action it implements.
-- Example pattern: `isolate_selection`, `select_selection`, `view_fit_reset`.
-- Non-action modules must stay outside `viewer/actions/`.
-- Shared helpers and orchestration stay in the viewer root (or another non-actions technical folder if introduced later).
-
-Why this rule exists:
-
-- predictable file discovery for the team
-- cleaner reviews and safer refactors
-- less architectural drift over time
-
-## Quick Start
-
-This project is a lightweight frontend prototype and can be run as a static site.
-
-1. Clone the repository.
-2. Open the project folder in VS Code.
-3. Run with a local web server (for example, Live Server extension) from the project root.
-4. Open the app in your browser.
-5. Click Load Model in the toolbar to import the default assembly.
+---
 
 ## Interaction Guide
 
 Use these controls once a model is loaded:
 
-- Left click on a part: select part or sub-assembly
-- Mouse wheel: zoom in and out
-- Middle mouse drag: pan
-- Shift + middle mouse drag: orbit camera around target
+- **Left click on a part**: select part or sub-assembly  
+- **Mouse wheel**: zoom in and out  
+- **Middle mouse drag**: pan  
+- **Shift + middle mouse drag**: orbit camera around target  
 
-## Common Input Confusion
+---
 
-- If orbit is not working, verify you are holding Shift while dragging the middle mouse button.
-- Some users describe orbit as Shift + wheel, but in this viewer the intended orbit action is Shift + middle-drag.
-- On laptops or compact mice, middle-button behavior can vary by OS/browser settings.
+## Live Demo
 
-## Current Model Asset Policy
+https://cadt2.github.io/3d-assembly-inspector/  
+(Runs directly in the browser — no installation required)
 
-The repository is configured to track only one assembly model file for consistency and repository size control:
+---
 
-- assets/models/Glider-Retract-Landing-Gear.glb
+## Overview
+
+**3D Assembly Inspector** is a browser-based application designed to bring CAD-style assembly interaction into modern web environments.
+
+The system combines:
+
+- structured assembly data  
+- real-time 3D visualization  
+- interaction-driven workflows  
+
+into a unified platform capable of supporting engineering, inspection, and documentation use cases.
+
+---
+
+## Interface Preview
+
+![3D Assembly Inspector UI](assets/docs/ui-screenshot.png)
+
+---
+
+## System Capabilities
+
+- Hierarchical assembly navigation (tree-based structure)  
+- Real-time 3D interaction using WebGL (BabylonJS)  
+- Part and sub-assembly identification  
+- Isolation and inspection workflows  
+- Logical interpretation of imported GLTF / GLB assemblies  
+- Foundation for integration with engineering data systems  
+
+---
+
+## Engineering Focus
+
+This system is designed as a browser-based engineering tool, not just a viewer.
+
+Key areas of focus:
+
+- Mapping CAD interaction patterns into web applications  
+- Separating visualization, logic, and data layers  
+- Designing scalable structures for assembly interpretation  
+- Enabling future integration with backend systems and metadata  
+
+---
+
+## Current State (April 2026)
+
+The application provides a stable baseline focused on interaction consistency, system structure, and scalability.
+
+Recent improvements include:
+
+- Structure-based hierarchy normalization  
+  Ensures consistent behavior across different GLTF / GLB sources  
+
+- Semantic label preservation  
+  Maintains meaningful assembly naming when collapsing technical nodes  
+
+- Refined orthographic framing  
+  Improves initial camera positioning while preserving bounding-box centering  
+
+- Improved navigation control  
+  Smoother zoom behavior for detailed inspection workflows  
+
+- Non-destructive selection highlighting  
+  Preserves material fidelity during interaction  
+
+- Enhanced ViewCube usability  
+  Improved orientation feedback and readability  
+
+---
+
+## Architecture Overview
+
+---
+
+## System Design Approach
+
+The application follows a modular architecture separating:
+
+- UI Layer — structured interface and interaction  
+- Logic Layer — assembly interpretation and behavior  
+- Rendering Layer — real-time 3D visualization  
+
+This separation allows the system to scale toward:
+
+- data-driven assemblies  
+- backend integration  
+- persistent storage  
+- engineering workflows  
+
+---
+
+## Performance Direction (Next Phase)
+
+The system is evolving toward a hybrid architecture where computation-heavy logic is decoupled from the browser interaction layer.
+
+Planned direction includes:
+
+- leveraging Rust for high-performance computation  
+- exploring WebAssembly (WASM) for performance-critical workflows  
+- enabling scalable handling of complex assemblies and geometry operations  
+
+---
+
+## Tech Stack
+
+- JavaScript / TypeScript  
+- BabylonJS (WebGL)  
+- DHTMLX Suite  
+- GLTF / GLB  
+- HTML / CSS  
+
+---
+
+## Viewer Module Convention
+
+To keep the viewer maintainable as behaviors grow, this repository follows a strict folder rule:
+
+- `viewer/actions/` contains only isolated viewer actions  
+- Each action file must be named after the action it implements  
+- Example pattern: `isolate_selection`, `select_selection`, `view_fit_reset`  
+- Non-action modules must stay outside `viewer/actions/`  
+- Shared helpers and orchestration stay in the viewer root (or another non-actions technical folder if introduced later)  
+
+---
+
+## Execution
+
+1. Clone repository  
+2. Run via local web server  
+3. Load a GLB model  
+4. Interact with the assembly  
+
+---
+
+## Portfolio Context
+
+This system demonstrates the development of a web-based CAD-inspired application, combining:
+
+- real-time 3D rendering  
+- structured UI systems  
+- engineering-oriented interaction design  
+- scalable architecture for future system expansion  
+
+---
+
+## Final Result
+
+This README presents the system as a structured, scalable engineering application aligned with web-based CAD development.
