@@ -1,6 +1,7 @@
 import { createToolbar } from "./toolbar.js";
 import { createTree } from "./tree.js";
 import { createViewMenuController } from "./viewMenuController.js";
+import { showNavigationInstructionsModal } from "./navigationInstructionsModal.js";
 import { initViewer } from "../viewer/viewer3d.js";
 
 export function createLayout() {
@@ -185,6 +186,8 @@ export function createLayout() {
     let treeSelectionBound = false;
 
     dhx.awaitRedraw().then(() => {
+        showNavigationInstructionsModal();
+
         viewerApi = initViewer("viewer-root", {
             // [DEMO] autoLoad activado para GitHub Pages. Para volver al flujo manual:
             // 1. Cambiar autoLoad a false

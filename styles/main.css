@@ -170,3 +170,46 @@ html, body {
   color: var(--tree-selection-fg) !important;
   font-weight: 600 !important;
 }
+
+.navigation-help-modal {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  font-family: Arial, sans-serif;
+  color: #26313d;
+  background: #f8fbff;
+}
+
+.navigation-help-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: #203247;
+}
+
+.navigation-help-subtitle {
+  font-size: 13px;
+  color: #4e5d6d;
+  margin-bottom: 10px;
+}
+
+.navigation-help-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.navigation-help-list li {
+  margin-bottom: 4px;
+}
+
+.navigation-help-note {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid #d5e3f3;
+  background: #eef5ff;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #32506f;
+}
