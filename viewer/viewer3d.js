@@ -398,14 +398,14 @@ export function initViewer(containerId, options = {}) {
   ensureColorifyPluginRegistration();
 
   // camera + lights + ground
-  // Default startup orientation (before loading any model): Top view.
-  const camera = new BABYLON.ArcRotateCamera("camera", Math.PI, 0.001, 6, BABYLON.Vector3.Zero(), scene);
+  // Default startup orientation (before loading any model): Isometric perspective.
+  const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, 6, BABYLON.Vector3.Zero(), scene);
   camera.attachControl(canvas, true);
   camera.lowerRadiusLimit = env.camera.initialLowerRadiusLimit;
   camera.upperRadiusLimit = env.camera.initialUpperRadiusLimit;
   camera.wheelPrecision = env.camera.initialWheelPrecision;
   camera.minZ = env.camera.initialMinZ;
-  camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+  camera.mode = BABYLON.Camera.PERSPECTIVE_CAMERA;
 
   let viewFitResetAction = null;
 
