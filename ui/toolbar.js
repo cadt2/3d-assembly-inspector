@@ -48,20 +48,21 @@ export function createToolbar(options = {}) {
                 value: "Ortho",
                 css: "toolbar-ortho-list",
                 items: [
-                    { id: "projectionOrtho", value: "Ortho" },
-                    { id: "projectionIso", value: "Isometric" }
+                    { id: "projectionOrtho", value: "Ortho", icon: "mdi mdi-vector-square" },
+                    { id: "projectionIso", value: "Isometric", icon: "mdi mdi-cube" }
                 ]
             },
             {
                 id: "orthoFacesMenu",
                 value: "View Orientation",
+                icon: "mdi mdi-axis-arrow-info",
                 items: [
-                    { id: "viewTop", value: "Top" },
-                    { id: "viewBottom", value: "Bottom" },
-                    { id: "viewFront", value: "Front" },
-                    { id: "viewBack", value: "Back" },
-                    { id: "viewLeft", value: "Left" },
-                    { id: "viewRight", value: "Right" }
+                    { id: "viewTop", value: "Top", icon: "mdi mdi-axis-z-arrow" },
+                    { id: "viewBottom", value: "Bottom", icon: "mdi mdi-axis-z-arrow mdi-rotate-180" },
+                    { id: "viewFront", value: "Front", icon: "mdi mdi-axis-y-arrow" },
+                    { id: "viewBack", value: "Back", icon: "mdi mdi-axis-y-arrow mdi-rotate-180" },
+                    { id: "viewLeft", value: "Left", icon: "mdi mdi-axis-x-arrow mdi-rotate-180" },
+                    { id: "viewRight", value: "Right", icon: "mdi mdi-axis-x-arrow" }
                 ]
             }
         ]
