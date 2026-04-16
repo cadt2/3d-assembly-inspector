@@ -1,5 +1,9 @@
 # 3D Assembly Inspector
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/demo-live-blue.svg)](https://cadt2.github.io/3d-assembly-inspector/)
+[![Version](https://img.shields.io/badge/version-v0.5.1-informational.svg)](https://github.com/cadt2/3d-assembly-inspector/releases/tag/v0.5.1)
+
 *Optimized for desktop interaction using mouse-based controls.*
 
 Interactive web-based system for exploring, analyzing, and structuring 3D assemblies through a CAD-inspired interface.
@@ -68,33 +72,38 @@ Key areas of focus:
 
 ---
 
-## Current State (April 2026)
+## Current State — v0.5.1 (April 2026)
 
-The application provides a stable baseline focused on interaction consistency, system structure, and scalability.
+The application provides a stable, interactive CAD-style baseline with polished viewport controls and a navigation-first UX.
 
 Recent improvements include:
 
-- Structure-based hierarchy normalization  
-  Ensures consistent behavior across different GLTF / GLB sources  
-
-- Semantic label preservation  
-  Maintains meaningful assembly naming when collapsing technical nodes  
-
-- Refined orthographic framing  
-  Improves initial camera positioning while preserving bounding-box centering  
-
-- Improved navigation control  
-  Smoother zoom behavior for detailed inspection workflows  
-
-- Non-destructive selection highlighting  
-  Preserves material fidelity during interaction  
-
-- Enhanced ViewCube usability  
-  Improved orientation feedback and readability  
+- Default startup in isometric perspective view (matches AutoCAD/Inventor defaults)  
+- Startup navigation modal with interaction guide (DHTMLX Window)  
+- Distinct CAD-style icons for all View Orientation and projection controls  
+- Structure-based hierarchy normalization across GLTF/GLB sources  
+- Semantic label preservation when collapsing single-child technical nodes  
+- Non-destructive selection highlighting (preserves material fidelity)  
+- Modular architecture: each UI feature in its own dedicated module  
 
 ---
 
 ## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    UI Layer                         │
+│  layout.js · toolbar.js · tree.js · viewMenu        │
+├─────────────────────────────────────────────────────┤
+│                  Logic Layer                        │
+│  viewer3d.js · viewerEnvironment.js                 │
+│  actions/ (isolate · select · view_fit_reset)       │
+├─────────────────────────────────────────────────────┤
+│                Rendering Layer                      │
+│  BabylonJS (WebGL) · viewCubeFeature · axisTriad    │
+│  modelBounds · GridMaterial                         │
+└─────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -170,5 +179,14 @@ This system demonstrates the development of a web-based CAD-inspired application
 ---
 
 ## Final Result
+
+A functional, browser-based CAD-style assembly inspector demonstrating:
+
+- Engineering-grade 3D interaction patterns in a pure web stack  
+- Real-time GLTF/GLB assembly exploration with hierarchical tree navigation  
+- Modular, scalable architecture ready for backend integration  
+- Clean separation between rendering, logic, and UI layers  
+
+See the [live demo](https://cadt2.github.io/3d-assembly-inspector/) to interact with a real assembly.
 
 This README presents the system as a structured, scalable engineering application aligned with web-based CAD development.
