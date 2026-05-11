@@ -1,0 +1,32 @@
+name: License Docs Check
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  validate-license-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure required compliance files exist
+        run: |
+          test -f LICENSE
+          test -f README.md
+          test -f THIRD_PARTY_LICENSES.md
+
+      - name: Validate README license declaration
+        run: |
+          grep -q "GNU GPL v2.0" README.md
+          grep -q "THIRD_PARTY_LICENSES.md" README.md
+
+      - name: Validate third-party inventory includes DHTMLX
+        run: |
+          grep -q "DHTMLX Suite" THIRD_PARTY_LICENSES.md
+          grep -q "GPL-2.0" THIRD_PARTY_LICENSES.md

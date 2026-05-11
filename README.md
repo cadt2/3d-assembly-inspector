@@ -1,6 +1,6 @@
 # 3D Assembly Inspector
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: GPLv2](https://img.shields.io/badge/License-GPLv2-blue.svg)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/demo-live-blue.svg)](https://cadt2.github.io/3d-assembly-inspector/)
 [![Version](https://img.shields.io/badge/version-v0.5.1-informational.svg)](https://github.com/cadt2/3d-assembly-inspector/releases/tag/v0.5.1)
 
@@ -143,6 +143,20 @@ Planned direction includes:
 - DHTMLX Suite  
 - GLTF / GLB  
 - HTML / CSS  
+
+---
+
+## License and Compliance
+
+This repository is licensed under **GNU GPL v2.0**.
+
+Copyright (C) 2026 cadt2
+
+- Project license: see `LICENSE`
+- Third-party inventory: see `THIRD_PARTY_LICENSES.md`
+- DHTMLX Suite is loaded from CDN (`https://cdn.dhtmlx.com/suite/9.3/...`) and must be treated according to GPL-compatible distribution terms for this open project.
+
+If this project is ever moved to a closed/proprietary distribution model, replace the GPL-dependent UI stack or acquire the corresponding commercial license before release.
 
 ---
 
